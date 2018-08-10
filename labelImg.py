@@ -325,16 +325,20 @@ class MainWindow(QMainWindow, WindowMixin):
         labels.setText('Show/Hide Label Panel')
         labels.setShortcut('Ctrl+Shift+L')
 
+        createKeypoint = action('Create &Keypoint', self.createKeypointPressed,
+                      'Ctrl+K', 'createKeypoint', u'Create keypoint of the selected Box',
+                      enabled=False)
+
         # Lavel list context menu.
         labelMenu = QMenu()
-        addActions(labelMenu, (edit, delete))
+        addActions(labelMenu, (createKeypoint, edit, delete))
         self.labelList.setContextMenuPolicy(Qt.CustomContextMenu)
         self.labelList.customContextMenuRequested.connect(
             self.popLabelListMenu)
 
         # Store actions for further handling.
         self.actions = struct(save=save, save_format=save_format, saveAs=saveAs, open=open, close=close, resetAll = resetAll,
-                              lineColor=color1, create=create, delete=delete, edit=edit, copy=copy,
+                              lineColor=color1, create=create, createKeypoint=createKeypoint, delete=delete, edit=edit, copy=copy,
                               createMode=createMode, editMode=editMode, advancedMode=advancedMode,
                               shapeLineColor=shapeLineColor, shapeFillColor=shapeFillColor,
                               zoom=zoom, zoomIn=zoomIn, zoomOut=zoomOut, zoomOrg=zoomOrg,
@@ -345,7 +349,7 @@ class MainWindow(QMainWindow, WindowMixin):
                               beginner=(), advanced=(),
                               editMenu=(edit, copy, delete,
                                         None, color1),
-                              beginnerContext=(create, edit, copy, delete),
+                              beginnerContext=(create, createKeypoint, edit, copy, delete),
                               advancedContext=(createMode, editMode, edit, copy,
                                                delete, shapeLineColor, shapeFillColor),
                               onLoadActive=(
@@ -505,7 +509,7 @@ class MainWindow(QMainWindow, WindowMixin):
 
     def toggleAdvancedMode(self, value=True):
         self._beginner = not value
-        self.canvas.setEditing(True)
+        self.canvas.setMode(Canvas.MODE_EDIT)
         self.populateModeActions()
         self.editButton.setVisible(not value)
         if value:
@@ -608,8 +612,14 @@ class MainWindow(QMainWindow, WindowMixin):
 
     def createShape(self):
         assert self.beginner()
-        self.canvas.setEditing(False)
+        self.canvas.setMode(Canvas.MODE_CREATE)
         self.actions.create.setEnabled(False)
+    
+    def createKeypointPressed(self):
+        assert self.beginner()
+        self.canvas.setMode(Canvas.MODE_CREATE_KEYPOINT)
+        self.actions.create.setEnabled(False)
+        self.actions.createKeypoint.setEnabled(False)
 
     def toggleDrawingSensitive(self, drawing=True):
         """In the middle of drawing, toggling between modes should be disabled."""
@@ -617,22 +627,22 @@ class MainWindow(QMainWindow, WindowMixin):
         if not drawing and self.beginner():
             # Cancel creation.
             print('Cancel creation.')
-            self.canvas.setEditing(True)
+            self.canvas.setMode(self.canvas.EDIT)
             self.canvas.restoreCursor()
             self.actions.create.setEnabled(True)
 
-    def toggleDrawMode(self, edit=True):
-        self.canvas.setEditing(edit)
-        self.actions.createMode.setEnabled(edit)
-        self.actions.editMode.setEnabled(not edit)
+    def toggleDrawMode(self, mode=Canvas.MODE_EDIT):
+        self.canvas.setMode(mode)
+        self.actions.createMode.setEnabled(mode != Canvas.MODE_CREATE)
+        self.actions.editMode.setEnabled(mode != Canvas.MODE_EDIT)
 
     def setCreateMode(self):
         assert self.advanced()
-        self.toggleDrawMode(False)
+        self.toggleDrawMode(Canvas.MODE_CREATE)
 
     def setEditMode(self):
         assert self.advanced()
-        self.toggleDrawMode(True)
+        self.toggleDrawMode(Canvas.MODE_EDIT)
         self.labelSelectionChanged()
 
     def updateFileMenu(self):
@@ -709,6 +719,7 @@ class MainWindow(QMainWindow, WindowMixin):
                 self.shapesToItems[shape].setSelected(True)
             else:
                 self.labelList.clearSelection()
+        self.actions.createKeypoint.setEnabled(selected)
         self.actions.delete.setEnabled(selected)
         self.actions.copy.setEnabled(selected)
         self.actions.edit.setEnabled(selected)
@@ -849,7 +860,7 @@ class MainWindow(QMainWindow, WindowMixin):
             shape = self.canvas.setLastLabel(text, generate_color, generate_color)
             self.addLabel(shape)
             if self.beginner():  # Switch to edit mode.
-                self.canvas.setEditing(True)
+                self.canvas.setMode(Canvas.MODE_EDIT)
                 self.actions.create.setEnabled(True)
             else:
                 self.actions.editMode.setEnabled(True)

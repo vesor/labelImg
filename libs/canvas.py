@@ -29,15 +29,18 @@ class Canvas(QWidget):
     shapeMoved = pyqtSignal()
     drawingPolygon = pyqtSignal(bool)
 
-    CREATE, EDIT = list(range(2))
+    MODE_CREATE = 0
+    MODE_EDIT = 1
+    MODE_CREATE_KEYPOINT = 2
 
     epsilon = 11.0
 
     def __init__(self, *args, **kwargs):
         super(Canvas, self).__init__(*args, **kwargs)
         # Initialise local state.
-        self.mode = self.EDIT
+        self.mode = Canvas.MODE_EDIT
         self.shapes = []
+        self.keypoints = []
         self.current = None
         self.selectedShape = None  # save the selected shape here
         self.selectedShapeCopy = None
@@ -79,14 +82,14 @@ class Canvas(QWidget):
         return self.visible.get(shape, True)
 
     def drawing(self):
-        return self.mode == self.CREATE
+        return self.mode == Canvas.MODE_CREATE
 
     def editing(self):
-        return self.mode == self.EDIT
+        return self.mode == Canvas.MODE_EDIT
 
-    def setEditing(self, value=True):
-        self.mode = self.EDIT if value else self.CREATE
-        if not value:  # Create
+    def setMode(self, value):
+        self.mode = value
+        if self.mode == Canvas.MODE_CREATE:  # Create
             self.unHighlight()
             self.deSelectShape()
         self.prevPoint = QPointF()
@@ -199,8 +202,10 @@ class Canvas(QWidget):
         pos = self.transformPos(ev.pos())
 
         if ev.button() == Qt.LeftButton:
-            if self.drawing():
+            if self.mode == self.MODE_CREATE:
                 self.handleDrawing(pos)
+            elif self.mode == self.MODE_CREATE_KEYPOINT:
+                pass
             else:
                 self.selectShapePoint(pos)
                 self.prevPoint = pos

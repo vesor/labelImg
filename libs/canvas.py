@@ -160,6 +160,12 @@ class Canvas(QWidget):
                 self.boundedMoveShape(self.selectedShape, pos)
                 self.shapeMoved.emit()
                 self.repaint()
+            else:
+                # move image
+                v_delta = pos.y() - self.prevPoint.y()
+                h_delta = pos.x() - self.prevPoint.x()
+                self.scrollRequest.emit(v_delta, Qt.Vertical)
+                self.scrollRequest.emit(h_delta, Qt.Horizontal)
             return
 
         # Just hovering over the canvas, 2 posibilities:
@@ -416,7 +422,7 @@ class Canvas(QWidget):
         Shape.scale = self.scale
         for shape in self.shapes:
             if (shape.selected or not self._hideBackround) and self.isVisible(shape):
-                shape.fill = shape.selected or shape == self.hShape
+                #shape.fill = shape.selected or shape == self.hShape
                 shape.paint(p)
         if self.current:
             self.current.paint(p)

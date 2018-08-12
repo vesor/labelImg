@@ -74,10 +74,11 @@ class PascalVocWriter:
         segmented.text = '0'
         return top
 
-    def addBndBox(self, xmin, ymin, xmax, ymax, name, difficult):
+    def addBndBox(self, xmin, ymin, xmax, ymax, name, difficult, keypoints):
         bndbox = {'xmin': xmin, 'ymin': ymin, 'xmax': xmax, 'ymax': ymax}
         bndbox['name'] = name
         bndbox['difficult'] = difficult
+        bndbox['keypoints'] = keypoints
         self.boxlist.append(bndbox)
 
     def appendObjects(self, top):
@@ -110,6 +111,17 @@ class PascalVocWriter:
             ymax = SubElement(bndbox, 'ymax')
             ymax.text = str(each_object['ymax'])
 
+            kps = each_object['keypoints']
+            if kps is not None and len(kps) > 0:
+                keypoints = SubElement(object_item, 'keypoints')
+                for kp in kps:
+                    point = SubElement(keypoints, 'point')
+                    x = SubElement(point, 'x')
+                    x.text = str(kp[0])
+                    y = SubElement(point, 'y')
+                    y.text = str(kp[1])
+
+
     def save(self, targetFile=None):
         root = self.genXML()
         self.appendObjects(root)
@@ -141,13 +153,21 @@ class PascalVocReader:
     def getShapes(self):
         return self.shapes
 
-    def addShape(self, label, bndbox, difficult):
+    def addShape(self, label, bndbox, keypoints, difficult):
         xmin = int(bndbox.find('xmin').text)
         ymin = int(bndbox.find('ymin').text)
         xmax = int(bndbox.find('xmax').text)
         ymax = int(bndbox.find('ymax').text)
         points = [(xmin, ymin), (xmax, ymin), (xmax, ymax), (xmin, ymax)]
-        self.shapes.append((label, points, None, None, difficult))
+        kp_arr = []
+        for point in keypoints.iter("point"):
+            elemX = point.find('x')
+            print (elemX.text)
+            x = int(point.find('x').text)
+            y = int(point.find('y').text)
+            kp_arr.append((x,y))
+
+        self.shapes.append((label, points, kp_arr, None, None, difficult))
 
     def parseXML(self):
         assert self.filepath.endswith(XML_EXT), "Unsupport file format"
@@ -163,10 +183,11 @@ class PascalVocReader:
 
         for object_iter in xmltree.findall('object'):
             bndbox = object_iter.find("bndbox")
+            keypoints = object_iter.find("keypoints")
             label = object_iter.find('name').text
             # Add chris
             difficult = False
             if object_iter.find('difficult') is not None:
                 difficult = bool(int(object_iter.find('difficult').text))
-            self.addShape(label, bndbox, difficult)
+            self.addShape(label, bndbox, keypoints, difficult)
         return True

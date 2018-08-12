@@ -47,11 +47,14 @@ class LabelFile(object):
 
         for shape in shapes:
             points = shape['points']
+            keypoints = shape['keypoints']
             label = shape['label']
             # Add Chris
             difficult = int(shape['difficult'])
-            bndbox = LabelFile.convertPoints2BndBox(points)
-            writer.addBndBox(bndbox[0], bndbox[1], bndbox[2], bndbox[3], label, difficult)
+            bndbox = LabelFile.convertPoints2BndBox(points, imageShape)
+            kps = [LabelFile.clampPoint(int(round(kp[0])), int(round(kp[1])), imageShape) for kp in keypoints]
+
+            writer.addBndBox(bndbox[0], bndbox[1], bndbox[2], bndbox[3], label, difficult, kps)
 
         writer.save(targetFile=filename)
         return
@@ -77,7 +80,7 @@ class LabelFile(object):
             label = shape['label']
             # Add Chris
             difficult = int(shape['difficult'])
-            bndbox = LabelFile.convertPoints2BndBox(points)
+            bndbox = LabelFile.convertPoints2BndBox(points, imageShape)
             writer.addBndBox(bndbox[0], bndbox[1], bndbox[2], bndbox[3], label, difficult)
 
         writer.save(targetFile=filename, classList=classList)
@@ -121,7 +124,7 @@ class LabelFile(object):
         return fileSuffix == LabelFile.suffix
 
     @staticmethod
-    def convertPoints2BndBox(points):
+    def convertPoints2BndBox(points, imageSize):
         xmin = float('inf')
         ymin = float('inf')
         xmax = float('-inf')
@@ -137,10 +140,30 @@ class LabelFile(object):
         # Martin Kersner, 2015/11/12
         # 0-valued coordinates of BB caused an error while
         # training faster-rcnn object detector.
-        if xmin < 1:
-            xmin = 1
+        # if xmin < 1:
+        #     xmin = 1
 
-        if ymin < 1:
-            ymin = 1
+        # if ymin < 1:
+        #     ymin = 1
 
-        return (int(xmin), int(ymin), int(xmax), int(ymax))
+        xmin = int(round(xmin))
+        ymin = int(round(ymin))
+        xmax = int(round(xmax))
+        ymax = int(round(ymax))
+
+        xmin, ymin = LabelFile.clampPoint(xmin, ymin, imageSize)
+        xmax, ymax = LabelFile.clampPoint(xmax, ymax, imageSize)
+        return (xmin, ymin, xmax, ymax)
+
+    @staticmethod
+    def clampPoint(x, y, imageSize):
+        if x < 0:
+            x = 0
+        if x > imageSize[1]-1:
+            x = imageSize[1]-1
+        if y < 0:
+            y = 0
+        if y > imageSize[0]-1:
+            y = imageSize[0]-1
+        return x, y
+

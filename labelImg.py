@@ -752,10 +752,12 @@ class MainWindow(QMainWindow, WindowMixin):
 
     def loadLabels(self, shapes):
         s = []
-        for label, points, line_color, fill_color, difficult in shapes:
+        for label, points, keypoints, line_color, fill_color, difficult in shapes:
             shape = Shape(label=label)
             for x, y in points:
                 shape.addPoint(QPointF(x, y))
+            for x, y in keypoints:
+                shape.keypoint.addPoint(QPointF(x, y))
             shape.difficult = difficult
             shape.close()
             s.append(shape)
@@ -785,6 +787,7 @@ class MainWindow(QMainWindow, WindowMixin):
                         line_color=s.line_color.getRgb(),
                         fill_color=s.fill_color.getRgb(),
                         points=[(p.x(), p.y()) for p in s.points],
+                        keypoints=[(p.x(), p.y()) for p in s.keypoint.points],
                        # add chris
                         difficult = s.difficult)
 

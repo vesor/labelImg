@@ -180,7 +180,11 @@ class Canvas(QWidget):
             # - Highlight vertex
             # Update shape/vertex fill and tooltip value accordingly.
             self.setToolTip("Image")
-            for shape in reversed([s for s in self.shapes if self.isVisible(s)]):
+            hitTestShapes = [s for s in self.shapes if self.isVisible(s) and s != self.selectedShape]
+            if self.selectedShape:
+                hitTestShapes.append(self.selectedShape)
+            hitTestShapes = reversed(hitTestShapes)
+            for shape in hitTestShapes:
                 # Look for a nearby vertex to highlight. If that fails,
                 # check if we happen to be inside a shape.
                 index = shape.nearestVertex(pos, self.epsilon)

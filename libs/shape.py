@@ -201,7 +201,10 @@ class Shape(object):
         ymin = self.points[0].y()
         xmax = self.points[2].x()
         ymax = self.points[2].y()
-        assert xmin < xmax and ymin < ymax
+        if xmin > xmax:
+            xmin, xmax = xmax, xmin
+        if ymin > ymax:
+            ymin, ymax = ymax, ymin
         self.keypoint.updateBound(xmin, ymin, xmax, ymax)
 
 

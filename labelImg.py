@@ -328,17 +328,19 @@ class MainWindow(QMainWindow, WindowMixin):
         createKeypoint = action('Create &Keypoint', self.createKeypointPressed,
                       'Ctrl+K', 'createKeypoint', u'Create keypoint of the selected Box',
                       enabled=False)
+        deleteKeypoint = action('Delete Keypoint', self.deleteSelectedKeypoint,
+                        'Ctrl+Delete', 'deleteKeypoint', u'Delete keypoint of the selected Box', enabled=False)
 
         # Lavel list context menu.
         labelMenu = QMenu()
-        addActions(labelMenu, (createKeypoint, edit, delete))
+        addActions(labelMenu, (createKeypoint, edit, delete, deleteKeypoint))
         self.labelList.setContextMenuPolicy(Qt.CustomContextMenu)
         self.labelList.customContextMenuRequested.connect(
             self.popLabelListMenu)
 
         # Store actions for further handling.
         self.actions = struct(save=save, save_format=save_format, saveAs=saveAs, open=open, close=close, resetAll = resetAll,
-                              lineColor=color1, create=create, createKeypoint=createKeypoint, delete=delete, edit=edit, copy=copy,
+                              lineColor=color1, create=create, createKeypoint=createKeypoint, delete=delete, deleteKeypoint=deleteKeypoint, edit=edit, copy=copy,
                               createMode=createMode, editMode=editMode, advancedMode=advancedMode,
                               shapeLineColor=shapeLineColor, shapeFillColor=shapeFillColor,
                               zoom=zoom, zoomIn=zoomIn, zoomOut=zoomOut, zoomOrg=zoomOrg,
@@ -349,7 +351,7 @@ class MainWindow(QMainWindow, WindowMixin):
                               beginner=(), advanced=(),
                               editMenu=(edit, copy, delete,
                                         None, color1),
-                              beginnerContext=(create, createKeypoint, edit, copy, delete),
+                              beginnerContext=(create, createKeypoint, edit, copy, delete, deleteKeypoint),
                               advancedContext=(createMode, editMode, edit, copy,
                                                delete, shapeLineColor, shapeFillColor),
                               onLoadActive=(
@@ -721,6 +723,7 @@ class MainWindow(QMainWindow, WindowMixin):
                 self.labelList.clearSelection()
         self.actions.createKeypoint.setEnabled(selected)
         self.actions.delete.setEnabled(selected)
+        self.actions.deleteKeypoint.setEnabled(selected)
         self.actions.copy.setEnabled(selected)
         self.actions.edit.setEnabled(selected)
         self.actions.shapeLineColor.setEnabled(selected)
@@ -1360,6 +1363,10 @@ class MainWindow(QMainWindow, WindowMixin):
         if self.noShapes():
             for action in self.actions.onShapesPresent:
                 action.setEnabled(False)
+
+    def deleteSelectedKeypoint(self):
+        self.canvas.deleteSelectedKeypoint()
+        self.setDirty()
 
     def chshapeLineColor(self):
         color = self.colorDialog.getColor(self.lineColor, u'Choose line color',

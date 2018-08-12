@@ -158,7 +158,10 @@ class Shape(object):
     def nearestVertex(self, point, epsilon):
         for i, p in enumerate(self.points):
             if distance(p - point) <= epsilon:
-                return i
+                return (i, None)
+        keypointIndex = self.keypoint.nearestVertex(point, epsilon)
+        if keypointIndex is not None:
+            return (None, keypointIndex)
         return None
 
     def containsPoint(self, point):
@@ -178,14 +181,39 @@ class Shape(object):
         self.keypoint.moveBy(offset)
 
     def moveVertexBy(self, i, offset):
-        self.points[i] = self.points[i] + offset
+        if i[0] is not None:
+            self.points[i[0]] = self.points[i[0]] + offset
+        else:
+            self.keypoint.moveVertexBy(i[1], offset)
+
+    def updateBound(self, index):
+        lindex = (index + 3) % 4
+        rindex = (index + 1) % 4
+        if index % 2 == 0:
+            self.points[lindex].setX(self.points[index].x())
+            self.points[rindex].setY(self.points[index].y())
+        else:
+            self.points[lindex].setY(self.points[index].y())
+            self.points[rindex].setX(self.points[index].x())
+
+        # bound all keypoints
+        xmin = self.points[0].x()
+        ymin = self.points[0].y()
+        xmax = self.points[2].x()
+        ymax = self.points[2].y()
+        assert xmin < xmax and ymin < ymax
+        self.keypoint.updateBound(xmin, ymin, xmax, ymax)
+
+
 
     def highlightVertex(self, i, action):
-        self._highlightIndex = i
+        self._highlightIndex = i[0]
         self._highlightMode = action
+        self.keypoint.highlightVertex(i[1], action)
 
     def highlightClear(self):
         self._highlightIndex = None
+        self.keypoint.highlightClear()
 
     def copy(self):
         shape = Shape("%s" % self.label)
@@ -201,11 +229,20 @@ class Shape(object):
         shape.difficult = self.difficult
         return shape
 
+    def deleteKeypoint(self):
+        self.keypoint = Keypoint()
+
     def __len__(self):
         return len(self.points)
 
     def __getitem__(self, key):
-        return self.points[key]
+        if key[0] is not None:
+            return self.points[key[0]]
+        else:
+            return self.keypoint[key[1]]
 
     def __setitem__(self, key, value):
-        self.points[key] = value
+        if key[0] is not None:
+            self.points[key[0]] = value
+        else:
+            self.keypoint[key[1]] = value

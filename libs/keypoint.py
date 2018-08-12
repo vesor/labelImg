@@ -130,6 +130,17 @@ class Keypoint(object):
     def moveVertexBy(self, i, offset):
         self.points[i] = self.points[i] + offset
 
+    def updateBound(self, xmin, ymin, xmax, ymax):
+        for p in self.points:
+            if p.x() < xmin:
+                p.setX(xmin)
+            if p.y() < ymin:
+                p.setY(ymin)
+            if p.x() > xmax:
+                p.setX(xmax)
+            if p.y() > ymax:
+                p.setY(ymax)
+
     def highlightVertex(self, i, action):
         self._highlightIndex = i
         self._highlightMode = action

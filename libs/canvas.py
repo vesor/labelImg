@@ -119,15 +119,15 @@ class Canvas(QWidget):
                 if self.outOfPixmap(pos):
                     # Don't allow the user to draw outside the pixmap.
                     # Project the point to the pixmap's edges.
-                    pos = self.intersectionPoint(self.current[-1], pos)
-                elif len(self.current) > 1 and self.closeEnough(pos, self.current[0]):
+                    pos = self.intersectionPoint(self.current[(-1, None)], pos)
+                elif len(self.current) > 1 and self.closeEnough(pos, self.current[(0, None)]):
                     # Attract line to starting point and colorise to alert the
                     # user:
-                    pos = self.current[0]
+                    pos = self.current[(0, None)]
                     color = self.current.line_color
                     self.overrideCursor(CURSOR_POINT)
                     self.current.highlightVertex(0, Shape.NEAR_VERTEX)
-                self.line[1] = pos
+                self.line[(1, None)] = pos
                 self.line.line_color = color
                 self.prevPoint = QPointF()
                 self.current.highlightClear()
@@ -282,10 +282,10 @@ class Canvas(QWidget):
 
     def handleDrawing(self, pos):
         if self.current and self.current.reachMaxPoints() is False:
-            initPos = self.current[0]
+            initPos = self.current[(0, None)]
             minX = initPos.x()
             minY = initPos.y()
-            targetPos = self.line[1]
+            targetPos = self.line[(1, None)]
             maxX = targetPos.x()
             maxY = targetPos.y()
             self.current.addPoint(QPointF(maxX, minY))
@@ -345,25 +345,29 @@ class Canvas(QWidget):
 
     def boundedMoveVertex(self, pos):
         index, shape = self.hVertex, self.hShape
+
         point = shape[index]
-        if self.outOfPixmap(pos):
-            pos = self.intersectionPoint(point, pos)
+        if index[0] is not None:
+            # move vertex of bounding box
 
-        shiftPos = pos - point
-        shape.moveVertexBy(index, shiftPos)
+            if self.outOfPixmap(pos):
+                pos = self.intersectionPoint(point, pos)
 
-        lindex = (index + 1) % 4
-        rindex = (index + 3) % 4
-        lshift = None
-        rshift = None
-        if index % 2 == 0:
-            rshift = QPointF(shiftPos.x(), 0)
-            lshift = QPointF(0, shiftPos.y())
-        else:
-            lshift = QPointF(shiftPos.x(), 0)
-            rshift = QPointF(0, shiftPos.y())
-        shape.moveVertexBy(rindex, rshift)
-        shape.moveVertexBy(lindex, lshift)
+            shiftPos = pos - point
+            shape.moveVertexBy(index, shiftPos)
+
+            # update bound after vertex change
+            shape.updateBound(index[0])
+
+        elif index[1] is not None:
+            # move vertex of keypoints
+            shiftPos = pos - point
+            if not self.selectedShape.containsPoint(pos):
+                shiftPos.setX(0)
+                shiftPos.setY(0)
+            shape.moveVertexBy(index, shiftPos)
+
+
 
     def boundedMoveShape(self, shape, pos):
         if self.outOfPixmap(pos):
@@ -402,6 +406,11 @@ class Canvas(QWidget):
             self.selectedShape = None
             self.update()
             return shape
+
+    def deleteSelectedKeypoint(self):
+        if self.selectedShape:
+            self.selectedShape.deleteKeypoint()
+            self.update()
 
     def copySelectedShape(self):
         if self.selectedShape:
@@ -451,8 +460,8 @@ class Canvas(QWidget):
 
         # Paint rect
         if self.current is not None and len(self.line) == 2:
-            leftTop = self.line[0]
-            rightBottom = self.line[1]
+            leftTop = self.line[(0, None)]
+            rightBottom = self.line[(1, None)]
             rectWidth = rightBottom.x() - leftTop.x()
             rectHeight = rightBottom.y() - leftTop.y()
             p.setPen(self.drawingRectColor)
@@ -663,14 +672,14 @@ class Canvas(QWidget):
         assert self.shapes
         self.current = self.shapes.pop()
         self.current.setOpen()
-        self.line.points = [self.current[-1], self.current[0]]
+        self.line.points = [self.current[(-1, None)], self.current[(0, None)]]
         self.drawingPolygon.emit(True)
 
     def resetAllLines(self):
         assert self.shapes
         self.current = self.shapes.pop()
         self.current.setOpen()
-        self.line.points = [self.current[-1], self.current[0]]
+        self.line.points = [self.current[(-1, None)], self.current[(0, None)]]
         self.drawingPolygon.emit(True)
         self.current = None
         self.drawingPolygon.emit(False)

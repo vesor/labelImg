@@ -12,17 +12,19 @@ except ImportError:
 from libs.lib import distance
 import sys
 
-DEFAULT_LINE_COLOR = QColor(0, 255, 0, 128)
+DEFAULT_LINE_COLOR = QColor(66, 66, 66, 128)
 DEFAULT_FILL_COLOR = QColor(255, 0, 0, 128)
 DEFAULT_SELECT_LINE_COLOR = QColor(255, 255, 255)
 DEFAULT_SELECT_FILL_COLOR = QColor(0, 128, 255, 155)
-DEFAULT_VERTEX_FILL_COLOR = QColor(0, 255, 0, 255)
+DEFAULT_VERTEX_FILL_COLOR = QColor(0, 0, 255, 255)
+DEFAULT_VERTEX_FILL_COLOR_1 = QColor(255, 0, 255, 255)
 DEFAULT_HVERTEX_FILL_COLOR = QColor(255, 0, 0)
 MIN_Y_LABEL = 10
 
 
 class Keypoint(object):
     P_SQUARE, P_ROUND = range(2)
+    MOVE_VERTEX, NEAR_VERTEX = range(2)
     
     # The following class variables influence the drawing
     # of _all_ shape objects.
@@ -32,10 +34,11 @@ class Keypoint(object):
     vertex_fill_color = DEFAULT_VERTEX_FILL_COLOR
     hvertex_fill_color = DEFAULT_HVERTEX_FILL_COLOR
     point_type = P_ROUND
+    point_size = 8
+    scale = 1.0
 
     def __init__(self):
         self.points = []
-        self.fill = False
         self.selected = False
 
         self._highlightIndex = None
@@ -44,6 +47,12 @@ class Keypoint(object):
             self.NEAR_VERTEX: (4, self.P_ROUND),
             self.MOVE_VERTEX: (1.5, self.P_SQUARE),
         }
+
+    def empty():
+        return len(self.points) == 0
+
+    def setScale(s):
+        self.scale = s
 
     def reachMaxPoints(self):
         if len(self.points) >= 4:
@@ -76,55 +85,38 @@ class Keypoint(object):
             # may be desirable.
             #self.drawVertex(vrtx_path, 0)
 
-            for i, p in enumerate(self.points):
+            for p in self.points:
                 line_path.lineTo(p)
-                self.drawVertex(vrtx_path, i)
-            if self.isClosed():
-                line_path.lineTo(self.points[0])
-
             painter.drawPath(line_path)
-            painter.drawPath(vrtx_path)
-            painter.fillPath(vrtx_path, self.vertex_fill_color)
 
-            # Draw text at the top-left
-            if self.paintLabel:
-                min_x = sys.maxsize
-                min_y = sys.maxsize
-                for point in self.points:
-                    min_x = min(min_x, point.x())
-                    min_y = min(min_y, point.y())
-                if min_x != sys.maxsize and min_y != sys.maxsize:
-                    font = QFont()
-                    font.setPointSize(8)
-                    font.setBold(True)
-                    painter.setFont(font)
-                    if(self.label == None):
-                        self.label = ""
-                    if(min_y < MIN_Y_LABEL):
-                        min_y += MIN_Y_LABEL
-                    painter.drawText(min_x, min_y, self.label)
+            for i, p in enumerate(self.points):
+                self.drawVertex(painter, i)
 
-            if self.fill:
-                color = self.select_fill_color if self.selected else self.fill_color
-                painter.fillPath(line_path, color)
+            
 
-    def drawVertex(self, path, i):
+
+    def drawVertex(self, painter, i):
+        path = QPainterPath()
         d = self.point_size / self.scale
         shape = self.point_type
         point = self.points[i]
         if i == self._highlightIndex:
             size, shape = self._highlightSettings[self._highlightMode]
             d *= size
+        
+        fill_color = self.vertex_fill_color if i != 0 else DEFAULT_VERTEX_FILL_COLOR_1
         if self._highlightIndex is not None:
-            self.vertex_fill_color = self.hvertex_fill_color
-        else:
-            self.vertex_fill_color = Shape.vertex_fill_color
+            fill_color = self.hvertex_fill_color
+
         if shape == self.P_SQUARE:
             path.addRect(point.x() - d / 2, point.y() - d / 2, d, d)
         elif shape == self.P_ROUND:
             path.addEllipse(point, d / 2.0, d / 2.0)
         else:
             assert False, "unsupported vertex shape"
+
+        painter.drawPath(path)
+        painter.fillPath(path, fill_color)
 
     def nearestVertex(self, point, epsilon):
         for i, p in enumerate(self.points):
@@ -146,13 +138,12 @@ class Keypoint(object):
         self._highlightIndex = None
 
     def copy(self):
-        shape = Keypoint()
-        shape.points = [p for p in self.points]
-        shape.fill = self.fill
-        shape.selected = self.selected
-        if self.line_color != Shape.line_color:
-            shape.line_color = self.line_color
-        return shape
+        kypt = Keypoint()
+        kypt.points = [p for p in self.points]
+        kypt.selected = self.selected
+        if self.line_color != Keypoint.line_color:
+            kypt.line_color = self.line_color
+        return kypt
 
     def __len__(self):
         return len(self.points)

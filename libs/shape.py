@@ -10,6 +10,7 @@ except ImportError:
     from PyQt4.QtCore import *
 
 from libs.lib import distance
+from libs.keypoint import Keypoint
 import sys
 
 DEFAULT_LINE_COLOR = QColor(0, 255, 0, 128)
@@ -41,6 +42,7 @@ class Shape(object):
     def __init__(self, label=None, line_color=None, difficult=False, paintLabel=False):
         self.label = label
         self.points = []
+        self.keypoint = Keypoint()
         self.fill = False
         self.selected = False
         self.difficult = difficult
@@ -111,6 +113,8 @@ class Shape(object):
             painter.drawPath(vrtx_path)
             painter.fillPath(vrtx_path, self.vertex_fill_color)
 
+            self.keypoint.paint(painter)
+
             # Draw text at the top-left
             if self.paintLabel:
                 min_x = sys.maxsize
@@ -171,6 +175,7 @@ class Shape(object):
 
     def moveBy(self, offset):
         self.points = [p + offset for p in self.points]
+        self.keypoint.moveBy(offset)
 
     def moveVertexBy(self, i, offset):
         self.points[i] = self.points[i] + offset
@@ -185,6 +190,7 @@ class Shape(object):
     def copy(self):
         shape = Shape("%s" % self.label)
         shape.points = [p for p in self.points]
+        shape.keypoint = self.keypoint.copy()
         shape.fill = self.fill
         shape.selected = self.selected
         shape._closed = self._closed

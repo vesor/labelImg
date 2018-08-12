@@ -10,6 +10,7 @@ except ImportError:
 #from PyQt4.QtOpenGL import *
 
 from libs.shape import Shape
+from libs.keypoint import Keypoint
 from libs.lib import distance
 
 CURSOR_DEFAULT = Qt.ArrowCursor
@@ -29,9 +30,7 @@ class Canvas(QWidget):
     shapeMoved = pyqtSignal()
     drawingPolygon = pyqtSignal(bool)
 
-    MODE_CREATE = 0
-    MODE_EDIT = 1
-    MODE_CREATE_KEYPOINT = 2
+    MODE_CREATE, MODE_EDIT, MODE_CREATE_KEYPOINT = list(range(3))
 
     epsilon = 11.0
 
@@ -40,7 +39,6 @@ class Canvas(QWidget):
         # Initialise local state.
         self.mode = Canvas.MODE_EDIT
         self.shapes = []
-        self.keypoints = []
         self.current = None
         self.selectedShape = None  # save the selected shape here
         self.selectedShapeCopy = None
@@ -162,47 +160,56 @@ class Canvas(QWidget):
                 self.repaint()
             else:
                 # move image
+                self.overrideCursor(CURSOR_MOVE)
                 v_delta = pos.y() - self.prevPoint.y()
                 h_delta = pos.x() - self.prevPoint.x()
                 self.scrollRequest.emit(v_delta, Qt.Vertical)
                 self.scrollRequest.emit(h_delta, Qt.Horizontal)
             return
 
-        # Just hovering over the canvas, 2 posibilities:
-        # - Highlight shapes
-        # - Highlight vertex
-        # Update shape/vertex fill and tooltip value accordingly.
-        self.setToolTip("Image")
-        for shape in reversed([s for s in self.shapes if self.isVisible(s)]):
-            # Look for a nearby vertex to highlight. If that fails,
-            # check if we happen to be inside a shape.
-            index = shape.nearestVertex(pos, self.epsilon)
-            if index is not None:
-                if self.selectedVertex():
-                    self.hShape.highlightClear()
-                self.hVertex, self.hShape = index, shape
-                shape.highlightVertex(index, shape.MOVE_VERTEX)
-                self.overrideCursor(CURSOR_POINT)
-                self.setToolTip("Click & drag to move point")
-                self.setStatusTip(self.toolTip())
-                self.update()
-                break
-            elif shape.containsPoint(pos):
-                if self.selectedVertex():
-                    self.hShape.highlightClear()
-                self.hVertex, self.hShape = None, shape
-                self.setToolTip(
-                    "Click & drag to move shape '%s'" % shape.label)
-                self.setStatusTip(self.toolTip())
-                self.overrideCursor(CURSOR_GRAB)
-                self.update()
-                break
-        else:  # Nothing found, clear highlights, reset state.
-            if self.hShape:
-                self.hShape.highlightClear()
-                self.update()
-            self.hVertex, self.hShape = None, None
-            self.overrideCursor(CURSOR_DEFAULT)
+        if self.mode == self.MODE_CREATE_KEYPOINT:
+            assert self.selectedShape
+            self.setToolTip("Click to add keypoint")
+            if self.selectedShape.containsPoint(pos):
+                self.overrideCursor(CURSOR_DRAW)
+            else:
+                self.overrideCursor(CURSOR_DEFAULT)
+        else:
+            # Just hovering over the canvas, 2 posibilities:
+            # - Highlight shapes
+            # - Highlight vertex
+            # Update shape/vertex fill and tooltip value accordingly.
+            self.setToolTip("Image")
+            for shape in reversed([s for s in self.shapes if self.isVisible(s)]):
+                # Look for a nearby vertex to highlight. If that fails,
+                # check if we happen to be inside a shape.
+                index = shape.nearestVertex(pos, self.epsilon)
+                if index is not None:
+                    if self.selectedVertex():
+                        self.hShape.highlightClear()
+                    self.hVertex, self.hShape = index, shape
+                    shape.highlightVertex(index, shape.MOVE_VERTEX)
+                    self.overrideCursor(CURSOR_POINT)
+                    self.setToolTip("Click & drag to move point")
+                    self.setStatusTip(self.toolTip())
+                    self.update()
+                    break
+                elif shape.containsPoint(pos):
+                    if self.selectedVertex():
+                        self.hShape.highlightClear()
+                    self.hVertex, self.hShape = None, shape
+                    self.setToolTip(
+                        "Click & drag to move shape '%s'" % shape.label)
+                    self.setStatusTip(self.toolTip())
+                    self.overrideCursor(CURSOR_GRAB)
+                    self.update()
+                    break
+                else:  # Nothing found, clear highlights, reset state.
+                    if self.hShape:
+                        self.hShape.highlightClear()
+                        self.update()
+                    self.hVertex, self.hShape = None, None
+                    self.overrideCursor(CURSOR_DEFAULT)
 
     def mousePressEvent(self, ev):
         pos = self.transformPos(ev.pos())
@@ -210,11 +217,14 @@ class Canvas(QWidget):
         if ev.button() == Qt.LeftButton:
             if self.mode == self.MODE_CREATE:
                 self.handleDrawing(pos)
-            elif self.mode == self.MODE_CREATE_KEYPOINT:
-                pass
+            elif self.mode == self.MODE_CREATE_KEYPOINT and self.selectedShape.containsPoint(pos):
+                self.addKeypoint(pos)
             else:
+                self.setMode(self.MODE_EDIT)
                 self.selectShapePoint(pos)
                 self.prevPoint = pos
+                if self.selectedVertex() or self.selectedShape:
+                    self.overrideCursor(CURSOR_GRAB)
                 self.repaint()
         elif ev.button() == Qt.RightButton and self.editing():
             self.selectShapePoint(pos)
@@ -230,15 +240,18 @@ class Canvas(QWidget):
                 # Cancel the move by deleting the shadow copy.
                 self.selectedShapeCopy = None
                 self.repaint()
-        elif ev.button() == Qt.LeftButton and self.selectedShape:
-            if self.selectedVertex():
-                self.overrideCursor(CURSOR_POINT)
-            else:
-                self.overrideCursor(CURSOR_GRAB)
         elif ev.button() == Qt.LeftButton:
-            pos = self.transformPos(ev.pos())
-            if self.drawing():
-                self.handleDrawing(pos)
+            if self.selectedShape:
+                if self.selectedVertex():
+                    self.overrideCursor(CURSOR_POINT)
+                else:
+                    self.overrideCursor(CURSOR_GRAB)
+            else:
+                pos = self.transformPos(ev.pos())
+                if self.drawing():
+                    self.handleDrawing(pos)
+                else:
+                    self.restoreCursor()
 
     def endMove(self, copy=False):
         assert self.selectedShape and self.selectedShapeCopy
@@ -261,6 +274,11 @@ class Canvas(QWidget):
             # Otherwise the user will not be able to select a shape.
             self.setHiding(True)
             self.repaint()
+
+    def addKeypoint(self, pos):
+        assert self.selectedShape
+        self.selectedShape.keypoint.addPoint(pos)
+        self.repaint()
 
     def handleDrawing(self, pos):
         if self.current and self.current.reachMaxPoints() is False:
@@ -420,6 +438,7 @@ class Canvas(QWidget):
 
         p.drawPixmap(0, 0, self.pixmap)
         Shape.scale = self.scale
+        Keypoint.scale = self.scale
         for shape in self.shapes:
             if (shape.selected or not self._hideBackround) and self.isVisible(shape):
                 #shape.fill = shape.selected or shape == self.hShape
@@ -569,11 +588,13 @@ class Canvas(QWidget):
             v_delta = delta.y()
 
         mods = ev.modifiers()
-        if Qt.ControlModifier == int(mods) and v_delta:
+        # if Qt.ControlModifier == int(mods) and v_delta:
+        #     self.zoomRequest.emit(v_delta)
+        # else:
+        #     v_delta and self.scrollRequest.emit(v_delta, Qt.Vertical)
+        #     h_delta and self.scrollRequest.emit(h_delta, Qt.Horizontal)
+        if v_delta:
             self.zoomRequest.emit(v_delta)
-        else:
-            v_delta and self.scrollRequest.emit(v_delta, Qt.Vertical)
-            h_delta and self.scrollRequest.emit(h_delta, Qt.Horizontal)
         ev.accept()
 
     def keyPressEvent(self, ev):

@@ -618,7 +618,7 @@ class MainWindow(QMainWindow, WindowMixin):
     def createKeypointPressed(self):
         assert self.beginner()
         self.canvas.setMode(Canvas.MODE_CREATE_KEYPOINT)
-        self.actions.create.setEnabled(False)
+        #self.actions.create.setEnabled(False)
         self.actions.createKeypoint.setEnabled(False)
 
     def toggleDrawingSensitive(self, drawing=True):
@@ -627,7 +627,7 @@ class MainWindow(QMainWindow, WindowMixin):
         if not drawing and self.beginner():
             # Cancel creation.
             print('Cancel creation.')
-            self.canvas.setMode(self.canvas.EDIT)
+            self.canvas.setMode(Canvas.MODE_EDIT)
             self.canvas.restoreCursor()
             self.actions.create.setEnabled(True)
 

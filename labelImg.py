@@ -110,7 +110,7 @@ class MainWindow(QMainWindow, WindowMixin):
         self.lastOpenDir = None
 
         # Whether we need to save or not.
-        self.dirty = False
+        #self.dirty = False
 
         self._noSelectionSlot = False
         self._beginner = True
@@ -236,7 +236,7 @@ class MainWindow(QMainWindow, WindowMixin):
                         'space', 'verify', u'Verify Image')
 
         save = action('&Save', self.saveFile,
-                      'Ctrl+S', 'save', u'Save labels to file', enabled=False)
+                      'Ctrl+S', 'save', u'Save labels to file', enabled=True)
 
         save_format = action('&PascalVOC', self.change_format,
                       'Ctrl+', 'format_voc', u'Change save format', enabled=True)
@@ -369,7 +369,7 @@ class MainWindow(QMainWindow, WindowMixin):
         # Auto saving : Enable auto saving if pressing next
         self.autoSaving = QAction("Auto Saving", self)
         self.autoSaving.setCheckable(True)
-        self.autoSaving.setChecked(settings.get(SETTING_AUTO_SAVE, False))
+        self.autoSaving.setChecked(settings.get(SETTING_AUTO_SAVE, True))
         # Sync single class mode from PR#106
         self.singleClassMode = QAction("Single Class Mode", self)
         self.singleClassMode.setShortcut("Ctrl+Shift+S")
@@ -544,12 +544,13 @@ class MainWindow(QMainWindow, WindowMixin):
         addActions(self.tools, self.actions.advanced)
 
     def setDirty(self):
-        self.dirty = True
-        self.actions.save.setEnabled(True)
+        #self.dirty = True
+        #self.actions.save.setEnabled(True)
+        pass
 
     def setClean(self):
-        self.dirty = False
-        self.actions.save.setEnabled(False)
+        #self.dirty = False
+        #self.actions.save.setEnabled(False)
         self.actions.create.setEnabled(True)
 
     def toggleActions(self, value=True):
@@ -682,6 +683,8 @@ class MainWindow(QMainWindow, WindowMixin):
         if currIndex < len(self.mImgList):
             filename = self.mImgList[currIndex]
             if filename:
+                if self.autoSaving.isChecked() and self.defaultSaveDir:
+                    self.saveFile()
                 self.loadFile(filename)
 
     # Add chris
@@ -756,8 +759,9 @@ class MainWindow(QMainWindow, WindowMixin):
             shape = Shape(label=label)
             for x, y in points:
                 shape.addPoint(QPointF(x, y))
-            for x, y in keypoints:
-                shape.keypoint.addPoint(QPointF(x, y))
+            if keypoints is not None:
+                for x, y in keypoints:
+                    shape.keypoint.addPoint(QPointF(x, y))
             shape.difficult = difficult
             shape.close()
             s.append(shape)
@@ -1045,9 +1049,9 @@ class MainWindow(QMainWindow, WindowMixin):
             self.setWindowTitle(__appname__ + ' ' + filePath)
 
             # Default : select last item if there is at least one item
-            if self.labelList.count():
-                self.labelList.setCurrentItem(self.labelList.item(self.labelList.count()-1))
-                self.labelList.item(self.labelList.count()-1).setSelected(True)
+            # if self.labelList.count():
+            #     self.labelList.setCurrentItem(self.labelList.item(self.labelList.count()-1))
+            #     self.labelList.item(self.labelList.count()-1).setSelected(True)
 
             self.canvas.setFocus(True)
             return True
@@ -1220,8 +1224,8 @@ class MainWindow(QMainWindow, WindowMixin):
         # Proceding prev image without dialog if having any label
         if self.autoSaving.isChecked():
             if self.defaultSaveDir is not None:
-                if self.dirty is True:
-                    self.saveFile()
+                #if self.dirty is True:
+                self.saveFile()
             else:
                 self.changeSavedirDialog()
                 return
@@ -1245,8 +1249,8 @@ class MainWindow(QMainWindow, WindowMixin):
         # Proceding prev image without dialog if having any label
         if self.autoSaving.isChecked():
             if self.defaultSaveDir is not None:
-                if self.dirty is True:
-                    self.saveFile()
+                #if self.dirty is True:
+                self.saveFile()
             else:
                 self.changeSavedirDialog()
                 return
@@ -1271,6 +1275,7 @@ class MainWindow(QMainWindow, WindowMixin):
     def openFile(self, _value=False):
         if not self.mayContinue():
             return
+
         path = os.path.dirname(ustr(self.filePath)) if self.filePath else '.'
         formats = ['*.%s' % fmt.data().decode("ascii").lower() for fmt in QImageReader.supportedImageFormats()]
         filters = "Image & Label files (%s)" % ' '.join(formats + ['*%s' % LabelFile.suffix])
@@ -1278,6 +1283,9 @@ class MainWindow(QMainWindow, WindowMixin):
         if filename:
             if isinstance(filename, (tuple, list)):
                 filename = filename[0]
+
+            if self.autoSaving.isChecked() and self.defaultSaveDir:
+                self.saveFile()
             self.loadFile(filename)
 
     def saveFile(self, _value=False):
@@ -1336,7 +1344,8 @@ class MainWindow(QMainWindow, WindowMixin):
         proc.startDetached(os.path.abspath(__file__))
 
     def mayContinue(self):
-        return not (self.dirty and not self.discardChangesDialog())
+        #return not (self.dirty and not self.discardChangesDialog())
+        return True
 
     def discardChangesDialog(self):
         yes, no = QMessageBox.Yes, QMessageBox.No

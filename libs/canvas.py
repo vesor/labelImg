@@ -720,6 +720,8 @@ class Canvas(QWidget):
         QApplication.restoreOverrideCursor()
 
     def resetState(self):
+        self.selectedShape = None
+        self.mode = self.MODE_EDIT
         self.restoreCursor()
         self.pixmap = None
         self.update()

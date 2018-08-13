@@ -160,12 +160,13 @@ class PascalVocReader:
         ymax = int(bndbox.find('ymax').text)
         points = [(xmin, ymin), (xmax, ymin), (xmax, ymax), (xmin, ymax)]
         kp_arr = []
-        for point in keypoints.iter("point"):
-            elemX = point.find('x')
-            print (elemX.text)
-            x = int(point.find('x').text)
-            y = int(point.find('y').text)
-            kp_arr.append((x,y))
+        if keypoints is not None:
+            for point in keypoints.iter("point"):
+                elemX = point.find('x')
+                print (elemX.text)
+                x = int(point.find('x').text)
+                y = int(point.find('y').text)
+                kp_arr.append((x,y))
 
         self.shapes.append((label, points, kp_arr, None, None, difficult))
 

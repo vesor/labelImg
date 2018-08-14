@@ -1288,24 +1288,24 @@ class MainWindow(QMainWindow, WindowMixin):
                 self.saveFile()
             self.loadFile(filename)
 
-    def saveFile(self, _value=False):
+    def saveFile(self, forceSave=False):
         if self.defaultSaveDir is not None and len(ustr(self.defaultSaveDir)):
             if self.filePath:
                 imgFileName = os.path.basename(self.filePath)
                 savedFileName = os.path.splitext(imgFileName)[0]
                 savedPath = os.path.join(ustr(self.defaultSaveDir), savedFileName)
-                self._saveFile(savedPath)
+                self._saveFile(savedPath, forceSave)
         else:
             imgFileDir = os.path.dirname(self.filePath)
             imgFileName = os.path.basename(self.filePath)
             savedFileName = os.path.splitext(imgFileName)[0]
             savedPath = os.path.join(imgFileDir, savedFileName)
             self._saveFile(savedPath if self.labelFile
-                           else self.saveFileDialog())
+                           else self.saveFileDialog(), forceSave)
 
     def saveFileAs(self, _value=False):
         assert not self.image.isNull(), "cannot save empty image"
-        self._saveFile(self.saveFileDialog())
+        self._saveFile(self.saveFileDialog(), True)
 
     def saveFileDialog(self):
         caption = '%s - Choose File' % __appname__
@@ -1322,7 +1322,9 @@ class MainWindow(QMainWindow, WindowMixin):
             return os.path.splitext(fullFilePath)[0] # Return file path without the extension.
         return ''
 
-    def _saveFile(self, annotationFilePath):
+    def _saveFile(self, annotationFilePath, forceSave):
+        if not forceSave and len(self.canvas.shapes) <= 0:
+            return
         if annotationFilePath and self.saveLabels(annotationFilePath):
             self.setClean()
             self.statusBar().showMessage('Saved to  %s' % annotationFilePath)

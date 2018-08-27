@@ -11,6 +11,7 @@ except ImportError:
 
 from libs.lib import distance
 from libs.keypoint import Keypoint
+from libs.keypointGroup import KeypointGroup
 import sys
 
 DEFAULT_LINE_COLOR = QColor(0, 255, 0, 128)
@@ -42,7 +43,7 @@ class Shape(object):
     def __init__(self, label=None, line_color=None, difficult=False, paintLabel=False):
         self.label = label
         self.points = []
-        self.keypoint = Keypoint()
+        self.keypoint = KeypointGroup()
         self.fill = False
         self.selected = False
         self.difficult = difficult
@@ -233,7 +234,15 @@ class Shape(object):
         return shape
 
     def deleteKeypoint(self):
-        self.keypoint = Keypoint()
+        self.keypoint = KeypointGroup()
+
+    def addKeypoint(self, pos):
+        if len(self.keypoint.keypoints) == 0:
+            self.keypoint.keypoints.append(Keypoint())
+        self.keypoint.keypoints[-1].addPoint(pos)
+
+    def newKeypointGroup(self):
+        self.keypoint.keypoints.append(Keypoint())
 
     def __len__(self):
         return len(self.points)

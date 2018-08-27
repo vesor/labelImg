@@ -52,7 +52,13 @@ class LabelFile(object):
             # Add Chris
             difficult = int(shape['difficult'])
             bndbox = LabelFile.convertPoints2BndBox(points, imageShape)
-            kps = [LabelFile.clampPoint(int(round(kp[0])), int(round(kp[1])), imageShape) for kp in keypoints]
+
+            kps = []
+            for kp in keypoints:
+                kpg = []
+                for p in kp:
+                    kpg.append(LabelFile.clampPoint(int(round(p[0])), int(round(p[1])), imageShape))
+                kps.append(kpg)
 
             writer.addBndBox(bndbox[0], bndbox[1], bndbox[2], bndbox[3], label, difficult, kps)
 

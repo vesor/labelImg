@@ -1,0 +1,4 @@
+empty
+occupied
+lane_solid
+lane_dash

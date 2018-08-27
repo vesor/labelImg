@@ -614,9 +614,12 @@ class MainWindow(QMainWindow, WindowMixin):
     
     def createKeypointPressed(self):
         assert self.beginner()
+        if self.canvas.selectedShape is None:
+            return
+        self.canvas.selectedShape.newKeypointGroup()
         self.canvas.setMode(Canvas.MODE_CREATE_KEYPOINT)
         #self.actions.create.setEnabled(False)
-        self.actions.createKeypoint.setEnabled(False)
+        #self.actions.createKeypoint.setEnabled(False)
 
     def toggleDrawingSensitive(self, drawing=True):
         """In the middle of drawing, toggling between modes should be disabled."""
@@ -753,8 +756,11 @@ class MainWindow(QMainWindow, WindowMixin):
             for x, y in points:
                 shape.addPoint(QPointF(x, y))
             if keypoints is not None:
-                for x, y in keypoints:
-                    shape.keypoint.addPoint(QPointF(x, y))
+                for kpg in keypoints:
+                    if kpg is not None and len(kpg) > 0:
+                        shape.newKeypointGroup()
+                        for x, y in kpg:
+                            shape.addKeypoint(QPointF(x, y))
             shape.difficult = difficult
             shape.close()
             s.append(shape)
@@ -780,11 +786,18 @@ class MainWindow(QMainWindow, WindowMixin):
             self.labelFile.verified = self.canvas.verified
 
         def format_shape(s):
+            keypoints = []
+            for kp in s.keypoint.keypoints:
+                kpg = []
+                for p in kp:
+                    kpg.append((p.x(), p.y()))
+                keypoints.append(kpg)
+
             return dict(label=s.label,
                         line_color=s.line_color.getRgb(),
                         fill_color=s.fill_color.getRgb(),
                         points=[(p.x(), p.y()) for p in s.points],
-                        keypoints=[(p.x(), p.y()) for p in s.keypoint.points],
+                        keypoints=keypoints,
                        # add chris
                         difficult = s.difficult)
 

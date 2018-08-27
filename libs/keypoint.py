@@ -48,20 +48,8 @@ class Keypoint(object):
             self.MOVE_VERTEX: (1.5, self.P_SQUARE),
         }
 
-    def empty():
-        return len(self.points) == 0
-
-    def setScale(s):
-        self.scale = s
-
-    def reachMaxPoints(self):
-        if len(self.points) >= 4:
-            return True
-        return False
-
     def addPoint(self, point):
-        if not self.reachMaxPoints():
-            self.points.append(point)
+        self.points.append(point)
 
     def popPoint(self):
         if self.points:

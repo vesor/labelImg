@@ -114,12 +114,15 @@ class PascalVocWriter:
             kps = each_object['keypoints']
             if kps is not None and len(kps) > 0:
                 keypoints = SubElement(object_item, 'keypoints')
-                for kp in kps:
-                    point = SubElement(keypoints, 'point')
-                    x = SubElement(point, 'x')
-                    x.text = str(kp[0])
-                    y = SubElement(point, 'y')
-                    y.text = str(kp[1])
+                for kpg in kps:
+                    if kpg is not None and len(kpg) > 0:
+                        group = SubElement(keypoints, 'group')
+                        for kp in kpg:
+                            point = SubElement(group, 'point')
+                            x = SubElement(point, 'x')
+                            x.text = str(kp[0])
+                            y = SubElement(point, 'y')
+                            y.text = str(kp[1])
 
 
     def save(self, targetFile=None):
@@ -159,16 +162,19 @@ class PascalVocReader:
         xmax = int(bndbox.find('xmax').text)
         ymax = int(bndbox.find('ymax').text)
         points = [(xmin, ymin), (xmax, ymin), (xmax, ymax), (xmin, ymax)]
-        kp_arr = []
+        kps = []
         if keypoints is not None:
-            for point in keypoints.iter("point"):
-                elemX = point.find('x')
-                print (elemX.text)
-                x = int(point.find('x').text)
-                y = int(point.find('y').text)
-                kp_arr.append((x,y))
+            for group in keypoints.iter("group"):
+                kpg = []
+                for point in group.iter("point"):
+                    elemX = point.find('x')
+                    print (elemX.text)
+                    x = int(point.find('x').text)
+                    y = int(point.find('y').text)
+                    kpg.append((x,y))
+                kps.append(kpg)
 
-        self.shapes.append((label, points, kp_arr, None, None, difficult))
+        self.shapes.append((label, points, kps, None, None, difficult))
 
     def parseXML(self):
         assert self.filepath.endswith(XML_EXT), "Unsupport file format"

@@ -1,4 +1,5 @@
-empty
-occupied
-empty_occlude
-occupied_occlude
+bike
+car
+person
+obstacle
+road

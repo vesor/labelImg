@@ -281,7 +281,7 @@ class Canvas(QWidget):
 
     def addKeypoint(self, pos):
         assert self.selectedShape
-        self.selectedShape.keypoint.addPoint(pos)
+        self.selectedShape.addKeypoint(pos)
         self.repaint()
 
     def handleDrawing(self, pos):
@@ -309,13 +309,6 @@ class Canvas(QWidget):
 
     def canCloseShape(self):
         return self.drawing() and self.current and len(self.current) > 2
-
-    def mouseDoubleClickEvent(self, ev):
-        # We need at least 4 points here, since the mousePress handler
-        # adds an extra one before this handler is called.
-        if self.canCloseShape() and len(self.current) > 3:
-            self.current.popPoint()
-            self.finalise()
 
     def selectShape(self, shape):
         self.deSelectShape()

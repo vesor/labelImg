@@ -260,9 +260,6 @@ class MainWindow(QMainWindow, WindowMixin):
                         'w', 'new', u'Draw a new Box', enabled=False)
         delete = action('Delete\nRectBox', self.deleteSelectedShape,
                         'Delete', 'delete', u'Delete', enabled=False)
-        copy = action('&Duplicate\nRectBox', self.copySelectedShape,
-                      'Ctrl+D', 'copy', u'Create a duplicate of the selected Box',
-                      enabled=False)
 
         advancedMode = action('&Advanced Mode', self.toggleAdvancedMode,
                               'Ctrl+Shift+A', 'expert', u'Switch to advanced mode',
@@ -340,7 +337,7 @@ class MainWindow(QMainWindow, WindowMixin):
 
         # Store actions for further handling.
         self.actions = struct(save=save, save_format=save_format, saveAs=saveAs, open=open, close=close, resetAll = resetAll,
-                              lineColor=color1, create=create, createKeypoint=createKeypoint, delete=delete, deleteKeypoint=deleteKeypoint, edit=edit, copy=copy,
+                              lineColor=color1, create=create, createKeypoint=createKeypoint, delete=delete, deleteKeypoint=deleteKeypoint, edit=edit,
                               createMode=createMode, editMode=editMode, advancedMode=advancedMode,
                               shapeLineColor=shapeLineColor, shapeFillColor=shapeFillColor,
                               zoom=zoom, zoomIn=zoomIn, zoomOut=zoomOut, zoomOrg=zoomOrg,
@@ -349,10 +346,10 @@ class MainWindow(QMainWindow, WindowMixin):
                               fileMenuActions=(
                                   open, opendir, save, saveAs, close, resetAll, quit),
                               beginner=(), advanced=(),
-                              editMenu=(edit, copy, delete,
+                              editMenu=(edit, delete,
                                         None, color1),
-                              beginnerContext=(create, createKeypoint, edit, copy, delete, deleteKeypoint),
-                              advancedContext=(createMode, editMode, edit, copy,
+                              beginnerContext=(create, createKeypoint, edit, delete, deleteKeypoint),
+                              advancedContext=(createMode, editMode, edit,
                                                delete, shapeLineColor, shapeFillColor),
                               onLoadActive=(
                                   close, create, createMode, editMode),
@@ -399,13 +396,10 @@ class MainWindow(QMainWindow, WindowMixin):
 
         # Custom context menu for the canvas widget:
         addActions(self.canvas.menus[0], self.actions.beginnerContext)
-        addActions(self.canvas.menus[1], (
-            action('&Copy here', self.copyShape),
-            action('&Move here', self.moveShape)))
 
         self.tools = self.toolbar('Tools')
         self.actions.beginner = (
-            open, opendir, changeSavedir, openNextImg, openPrevImg, verify, save, save_format, None, create, copy, delete, None,
+            open, opendir, changeSavedir, openNextImg, openPrevImg, verify, save, save_format, None, create, delete, None,
             zoomIn, zoom, zoomOut, fitWindow, fitWidth)
 
         self.actions.advanced = (
@@ -727,7 +721,6 @@ class MainWindow(QMainWindow, WindowMixin):
         self.actions.createKeypoint.setEnabled(selected)
         self.actions.delete.setEnabled(selected)
         self.actions.deleteKeypoint.setEnabled(selected)
-        self.actions.copy.setEnabled(selected)
         self.actions.edit.setEnabled(selected)
         self.actions.shapeLineColor.setEnabled(selected)
         self.actions.shapeFillColor.setEnabled(selected)
@@ -817,11 +810,6 @@ class MainWindow(QMainWindow, WindowMixin):
         except LabelFileError as e:
             self.errorMessage(u'Error saving label data', u'<b>%s</b>' % e)
             return False
-
-    def copySelectedShape(self):
-        self.addLabel(self.canvas.copySelectedShape())
-        # fix copy and delete
-        self.shapeSelectionChanged(True)
 
     def labelSelectionChanged(self):
         item = self.currentItem()
@@ -1400,15 +1388,6 @@ class MainWindow(QMainWindow, WindowMixin):
             self.canvas.selectedShape.fill_color = color
             self.canvas.update()
             self.setDirty()
-
-    def copyShape(self):
-        self.canvas.endMove(copy=True)
-        self.addLabel(self.canvas.selectedShape)
-        self.setDirty()
-
-    def moveShape(self):
-        self.canvas.endMove(copy=False)
-        self.setDirty()
 
     def loadPredefinedClasses(self, predefClassesFile):
         if os.path.exists(predefClassesFile) is True:

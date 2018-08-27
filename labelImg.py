@@ -235,7 +235,7 @@ class MainWindow(QMainWindow, WindowMixin):
         verify = action('&Verify Image', self.verifyImg,
                         'space', 'verify', u'Verify Image')
 
-        save = action('&Save', self.saveFile,
+        save = action('&Save', self.saveFilePressed,
                       'Ctrl+S', 'save', u'Save labels to file', enabled=True)
 
         save_format = action('&PascalVOC', self.change_format,
@@ -1287,6 +1287,9 @@ class MainWindow(QMainWindow, WindowMixin):
             if self.autoSaving.isChecked() and self.defaultSaveDir:
                 self.saveFile()
             self.loadFile(filename)
+
+    def saveFilePressed(self):
+        self.saveFile(True)
 
     def saveFile(self, forceSave=False):
         if self.defaultSaveDir is not None and len(ustr(self.defaultSaveDir)):

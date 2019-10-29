@@ -473,8 +473,8 @@ class Canvas(QWidget):
             rectWidth = rightBottom.x() - leftTop.x()
             rectHeight = rightBottom.y() - leftTop.y()
             p.setPen(self.drawingRectColor)
-            brush = QBrush(Qt.BDiagPattern)
-            p.setBrush(brush)
+            # brush = QBrush(Qt.BDiagPattern)
+            # p.setBrush(brush)
             p.drawRect(leftTop.x(), leftTop.y(), rectWidth, rectHeight)
 
         if self.drawing() and not self.prevPoint.isNull() and not self.outOfPixmap(self.prevPoint):

@@ -38,6 +38,7 @@ class Canvas(QWidget):
         super(Canvas, self).__init__(*args, **kwargs)
         # Initialise local state.
         self.mode = Canvas.MODE_EDIT
+        self.auto_generate_keypoints = False
         self.shapes = []
         self.current = None
         self.selectedShape = None  # save the selected shape here
@@ -295,6 +296,9 @@ class Canvas(QWidget):
             self.current.addPoint(QPointF(maxX, minY))
             self.current.addPoint(targetPos)
             self.current.addPoint(QPointF(minX, maxY))
+            if self.auto_generate_keypoints:
+                self.current.keypoint.addPoint(initPos)
+                self.current.keypoint.addPoint(targetPos)
             self.finalise()
         elif not self.outOfPixmap(pos):
             self.current = Shape()

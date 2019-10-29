@@ -251,12 +251,12 @@ class Canvas(QWidget):
                     self.overrideCursor(CURSOR_POINT)
                 else:
                     self.overrideCursor(CURSOR_GRAB)
-            else:
-                pos = self.transformPos(ev.pos())
-                if self.drawing():
-                    self.handleDrawing(pos)
-                else:
-                    self.restoreCursor()
+            # else:
+            #     pos = self.transformPos(ev.pos())
+            #     if self.drawing():
+            #         self.handleDrawing(pos)
+            #     else:
+            #         self.restoreCursor()
 
     def endMove(self, copy=False):
         assert self.selectedShape and self.selectedShapeCopy

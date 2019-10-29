@@ -1332,6 +1332,16 @@ class MainWindow(QMainWindow, WindowMixin):
 
     def _saveFile(self, annotationFilePath, forceSave):
         if not forceSave and len(self.canvas.shapes) <= 0:
+            if self.usingPascalVocFormat:
+                if ustr(annotationFilePath[-4:]) != ".xml":
+                    annotationFilePath += XML_EXT
+            elif self.usingYoloFormat:
+                if annotationFilePath[-4:] != ".txt":
+                    annotationFilePath += TXT_EXT
+
+            if os.path.exists(annotationFilePath):
+                os.remove(annotationFilePath)
+                print ("empty annotation file removed: ", annotationFilePath)
             return
         if annotationFilePath and self.saveLabels(annotationFilePath):
             self.setClean()

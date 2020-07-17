@@ -36,6 +36,7 @@ from libs.canvas import Canvas
 from libs.zoomWidget import ZoomWidget
 from libs.labelDialog import LabelDialog
 from libs.colorDialog import ColorDialog
+from libs.alertDialog import AlertDialog
 from libs.labelFile import LabelFile, LabelFileError
 from libs.toolBar import ToolBar
 from libs.pascal_voc_io import PascalVocReader
@@ -181,6 +182,8 @@ class MainWindow(QMainWindow, WindowMixin):
 
         self.zoomWidget = ZoomWidget()
         self.colorDialog = ColorDialog(parent=self)
+
+        self.alertDialog = AlertDialog(parent=self)
 
         self.canvas = Canvas(parent=self)
         self.canvas.zoomRequest.connect(self.zoomRequest)
@@ -689,7 +692,7 @@ class MainWindow(QMainWindow, WindowMixin):
 
     # Tzutalin 20160906 : Add file list and dock to move faster
     def fileitemDoubleClicked(self, item=None):
-        currIndex = self.mImgList.index(ustr(item.text()))
+        currIndex = self.mImgList.index(ustr(os.path.join(self.dirname, item.text()))) #self.mImgList.index(ustr(item.text()))
         if currIndex < len(self.mImgList):
             filename = self.mImgList[currIndex]
             if filename:
@@ -743,7 +746,11 @@ class MainWindow(QMainWindow, WindowMixin):
 
     def addLabel(self, shape):
         shape.paintLabel = self.paintLabelsOption.isChecked()
-        item = HashableQListWidgetItem(shape.label)
+        item_label = shape.label
+        if shape.score is not None:
+            item_label = "{} {:.3f}".format(shape.label, shape.score)
+        
+        item = HashableQListWidgetItem(item_label)
         item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
         item.setCheckState(Qt.Checked)
         item.setBackground(generateColorByText(shape.label))
@@ -764,7 +771,7 @@ class MainWindow(QMainWindow, WindowMixin):
 
     def loadLabels(self, shapes):
         s = []
-        for label, points, keypoints, line_color, fill_color, difficult in shapes:
+        for label, points, keypoints, line_color, fill_color, difficult, score in shapes:
             shape = Shape(label=label)
             for x, y in points:
                 shape.addPoint(QPointF(x, y))
@@ -772,6 +779,7 @@ class MainWindow(QMainWindow, WindowMixin):
                 for x, y in keypoints:
                     shape.keypoint.addPoint(QPointF(x, y))
             shape.difficult = difficult
+            shape.score = score
             shape.close()
             s.append(shape)
 
@@ -810,13 +818,13 @@ class MainWindow(QMainWindow, WindowMixin):
             if self.usingPascalVocFormat is True:
                 if ustr(annotationFilePath[-4:]) != ".xml":
                     annotationFilePath += XML_EXT
-                print ('Img: ' + self.filePath + ' -> Its xml: ' + annotationFilePath)
+                #print ('Img: ' + self.filePath + ' -> Its xml: ' + annotationFilePath)
                 self.labelFile.savePascalVocFormat(annotationFilePath, shapes, self.filePath, self.imageData,
                                                    self.lineColor.getRgb(), self.fillColor.getRgb())
             elif self.usingYoloFormat is True:
                 if annotationFilePath[-4:] != ".txt":
                     annotationFilePath += TXT_EXT
-                print ('Img: ' + self.filePath + ' -> Its txt: ' + annotationFilePath)
+                #print ('Img: ' + self.filePath + ' -> Its txt: ' + annotationFilePath)
                 self.labelFile.saveYoloFormat(annotationFilePath, shapes, self.filePath, self.imageData, self.labelHist,
                                                    self.lineColor.getRgb(), self.fillColor.getRgb())
             else:
@@ -1204,7 +1212,7 @@ class MainWindow(QMainWindow, WindowMixin):
         self.mImgList = self.scanAllImages(dirpath)
         self.openNextImg()
         for imgPath in self.mImgList:
-            item = QListWidgetItem(imgPath)
+            item = QListWidgetItem(os.path.basename(imgPath))
             self.fileListWidget.addItem(item)
 
     def verifyImg(self, _value=False):
@@ -1331,6 +1339,7 @@ class MainWindow(QMainWindow, WindowMixin):
         return ''
 
     def _saveFile(self, annotationFilePath, forceSave):
+        print ("_saveFile", annotationFilePath)
         if not forceSave and len(self.canvas.shapes) <= 0:
             if self.usingPascalVocFormat:
                 if ustr(annotationFilePath[-4:]) != ".xml":
@@ -1343,6 +1352,16 @@ class MainWindow(QMainWindow, WindowMixin):
                 os.remove(annotationFilePath)
                 print ("empty annotation file removed: ", annotationFilePath)
             return
+        
+        # safe check
+        has_score = False
+        for shape in self.canvas.shapes:
+            if shape.score is not None:
+                has_score = True
+        if has_score:
+            self.alertDialog.popUp(text='Warning: Save with score, consider uncheck Auto Saving')
+            return
+
         if annotationFilePath and self.saveLabels(annotationFilePath):
             self.setClean()
             self.statusBar().showMessage('Saved to  %s' % annotationFilePath)

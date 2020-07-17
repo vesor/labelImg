@@ -153,22 +153,25 @@ class PascalVocReader:
     def getShapes(self):
         return self.shapes
 
-    def addShape(self, label, bndbox, keypoints, difficult):
-        xmin = int(bndbox.find('xmin').text)
-        ymin = int(bndbox.find('ymin').text)
-        xmax = int(bndbox.find('xmax').text)
-        ymax = int(bndbox.find('ymax').text)
-        points = [(xmin, ymin), (xmax, ymin), (xmax, ymax), (xmin, ymax)]
-        kp_arr = []
-        if keypoints is not None:
-            for point in keypoints.iter("point"):
-                elemX = point.find('x')
-                print (elemX.text)
-                x = int(point.find('x').text)
-                y = int(point.find('y').text)
-                kp_arr.append((x,y))
-
-        self.shapes.append((label, points, kp_arr, None, None, difficult))
+    def addShape(self, label, bndbox, keypoints, difficult, score):
+        try:
+            xmin = int(bndbox.find('xmin').text)
+            ymin = int(bndbox.find('ymin').text)
+            xmax = int(bndbox.find('xmax').text)
+            ymax = int(bndbox.find('ymax').text)
+            points = [(xmin, ymin), (xmax, ymin), (xmax, ymax), (xmin, ymax)]
+            kp_arr = []
+            if keypoints is not None:
+                for point in keypoints.iter("point"):
+                    elemX = point.find('x')
+                    #print (elemX.text)
+                    x = int(point.find('x').text)
+                    y = int(point.find('y').text)
+                    kp_arr.append((x,y))
+        except:
+            print ("addShape exception")
+            raise ValueError("addShape exception")
+        self.shapes.append((label, points, kp_arr, None, None, difficult, score))
 
     def parseXML(self):
         assert self.filepath.endswith(XML_EXT), "Unsupport file format"
@@ -190,5 +193,8 @@ class PascalVocReader:
             difficult = False
             if object_iter.find('difficult') is not None:
                 difficult = bool(int(object_iter.find('difficult').text))
-            self.addShape(label, bndbox, keypoints, difficult)
+            score = None
+            if object_iter.find('score') is not None:
+                score = float(object_iter.find('score').text)
+            self.addShape(label, bndbox, keypoints, difficult, score)
         return True

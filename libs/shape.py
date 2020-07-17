@@ -46,6 +46,7 @@ class Shape(object):
         self.fill = False
         self.selected = False
         self.difficult = difficult
+        self.score = None
         self.paintLabel = paintLabel
 
         self._highlightIndex = None

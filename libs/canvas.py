@@ -234,8 +234,6 @@ class Canvas(QWidget):
                 else:
                     if not self.current:
                         self.startCreating(pos)
-                    elif self.expect_creating_points_num > 0 and len(self.current.keypoint) == self.expect_creating_points_num:
-                        self.finishCreating()
                     else:
                         self.current.keypoint.addPoint(pos)
 
@@ -258,7 +256,9 @@ class Canvas(QWidget):
                             QPointF(maxX, maxY), QPointF(minX, maxY)]
                         self.current.close()
                         self.line.points[-2] = pos
-                        
+
+                    if self.expect_creating_points_num > 0 and len(self.current.keypoint) == self.expect_creating_points_num:
+                        self.finishCreating() 
                         
                 self.update()
                 #self.addKeypoint(pos)

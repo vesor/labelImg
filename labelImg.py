@@ -379,10 +379,16 @@ class MainWindow(QMainWindow, WindowMixin):
         self.autoSaving.setChecked(settings.get(SETTING_AUTO_SAVE, True))
         # Sync single class mode from PR#106
         self.singleClassMode = QAction("Single Class Mode", self)
-        self.singleClassMode.setShortcut("Ctrl+Shift+S")
+        #self.singleClassMode.setShortcut("Ctrl+Shift+S")
         self.singleClassMode.setCheckable(True)
         self.singleClassMode.setChecked(settings.get(SETTING_SINGLE_CLASS, False))
         self.lastLabel = None
+        
+        # single shape mode
+        self.sameKeypointNumMode = QAction("Same Keypoint Num", self)
+        self.sameKeypointNumMode.setCheckable(True)
+        self.sameKeypointNumMode.setChecked(False)
+
         # Add option to enable/disable labels being painted at the top of bounding boxes
         self.paintLabelsOption = QAction("Paint Labels", self)
         self.paintLabelsOption.setShortcut("Ctrl+Shift+P")
@@ -403,6 +409,7 @@ class MainWindow(QMainWindow, WindowMixin):
         addActions(self.menus.view, (
             self.autoSaving,
             self.singleClassMode,
+            self.sameKeypointNumMode,
             self.paintLabelsOption,
             self.paintBBoxsOption,
             labels, advancedMode, None,
@@ -644,12 +651,16 @@ class MainWindow(QMainWindow, WindowMixin):
     
     def createKeypointPressed(self):
         assert self.beginner()
+        if self.sameKeypointNumMode.isChecked() and len(self.canvas.shapes) > 0:
+            self.canvas.expect_creating_points_num = len(self.canvas.shapes[-1].keypoint)
+        else:
+            self.canvas.expect_creating_points_num = -1
+            
         if self.canvas.mode == Canvas.MODE_CREATE_KEYPOINT:
             self.canvas.finishCreating()
             self.canvas.setMode(Canvas.MODE_EDIT) #Finish keypoint mode
             self.actions.createKeypoints.setText("Create Keypoints")
         else:
-            self.canvas.expect_creating_points_num = -1
             self.canvas.setMode(Canvas.MODE_CREATE_KEYPOINT)
             #self.actions.create.setEnabled(False)
             self.actions.createKeypoints.setText("Finish Keypoints")
@@ -1150,7 +1161,7 @@ class MainWindow(QMainWindow, WindowMixin):
             settings[SETTING_LAST_OPEN_DIR] = ""
 
         #settings[SETTING_AUTO_SAVE] = self.autoSaving.isChecked()
-        settings[SETTING_SINGLE_CLASS] = self.singleClassMode.isChecked()
+        #settings[SETTING_SINGLE_CLASS] = self.singleClassMode.isChecked()
         settings[SETTING_PAINT_LABEL] = self.paintLabelsOption.isChecked()
         #settings[SETTING_PAINT_BBOX] = self.paintBBoxsOption.isChecked()
         settings.save()

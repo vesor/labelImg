@@ -262,7 +262,7 @@ class MainWindow(QMainWindow, WindowMixin):
         createLine = action('Create Line', self.createLine,
                         'c', 'newline', u'Draw a new line', enabled=False)
 
-        create = action('Create\nRectBox', self.createShape,
+        create = action('Create\nRectBox', self.createRect,
                         'w', 'new', u'Draw a new Box', enabled=False)
         delete = action('Delete\nRectBox', self.deleteSelectedShape,
                         'Delete', 'delete', u'Delete', enabled=False)
@@ -328,22 +328,26 @@ class MainWindow(QMainWindow, WindowMixin):
         labels.setText('Show/Hide Label Panel')
         labels.setShortcut('Ctrl+Shift+L')
 
-        createKeypoint = action('Create &Keypoint', self.createKeypointPressed,
-                      'Ctrl+K', 'createKeypoint', u'Create keypoint of the selected Box',
-                      enabled=False)
-        deleteKeypoint = action('Delete Keypoint', self.deleteSelectedKeypoint,
-                        'Ctrl+Delete', 'deleteKeypoint', u'Delete keypoint of the selected Box', enabled=False)
+        createKeypoints = action('Create Keypoints', self.createKeypointPressed,
+                      't', 'createKeypoints', u'Create keypoints',
+                      enabled=True)
+        deleteKeypoints = action('Delete Keypoints', self.deleteSelectedKeypoint,
+                        'Ctrl+Delete', 'deleteKeypoints', u'Delete keypoints of the selected Box', enabled=False)
+        
+        # Add actions to window to receive shortcut keys event
+        self.addAction(createKeypoints)
+        self.addAction(deleteKeypoints)
 
         # Lavel list context menu.
         labelMenu = QMenu()
-        addActions(labelMenu, (createKeypoint, edit, delete, deleteKeypoint))
+        addActions(labelMenu, (createKeypoints, edit, delete, deleteKeypoints))
         self.labelList.setContextMenuPolicy(Qt.CustomContextMenu)
         self.labelList.customContextMenuRequested.connect(
             self.popLabelListMenu)
 
         # Store actions for further handling.
         self.actions = struct(save=save, save_format=save_format, saveAs=saveAs, open=open, close=close, resetAll = resetAll,
-                              lineColor=color1, create=create, createLine=createLine, createKeypoint=createKeypoint, delete=delete, deleteKeypoint=deleteKeypoint, edit=edit,
+                              lineColor=color1, create=create, createLine=createLine, createKeypoints=createKeypoints, delete=delete, deleteKeypoints=deleteKeypoints, edit=edit,
                               createMode=createMode, editMode=editMode, advancedMode=advancedMode,
                               shapeLineColor=shapeLineColor, shapeFillColor=shapeFillColor,
                               zoom=zoom, zoomIn=zoomIn, zoomOut=zoomOut, zoomOrg=zoomOrg,
@@ -354,7 +358,7 @@ class MainWindow(QMainWindow, WindowMixin):
                               beginner=(), advanced=(),
                               editMenu=(edit, delete,
                                         None, color1),
-                              beginnerContext=(createLine, create, createKeypoint, edit, delete, deleteKeypoint),
+                              beginnerContext=(createLine, create, createKeypoints, edit, delete, deleteKeypoints),
                               advancedContext=(createMode, editMode, edit,
                                                delete, shapeLineColor, shapeFillColor),
                               onLoadActive=(
@@ -624,25 +628,31 @@ class MainWindow(QMainWindow, WindowMixin):
         msg = u'Name:{0} \nApp Version:{1} \n{2} '.format(__appname__, __version__, sys.version_info)
         QMessageBox.information(self, u'Information', msg)
 
-    def createShape(self):
+    def createRect(self):
         assert self.beginner()
-        self.canvas.setMode(Canvas.MODE_CREATE)
-        self.canvas.auto_generate_keypoints = False
+        self.canvas.expect_creating_points_num = 2
+        self.canvas.setMode(Canvas.MODE_CREATE_BBOX)
         self.actions.createLine.setEnabled(False)
         self.actions.create.setEnabled(False)
 
     def createLine(self):
         assert self.beginner()
-        self.canvas.setMode(Canvas.MODE_CREATE)
-        self.canvas.auto_generate_keypoints = True
+        self.canvas.expect_creating_points_num = -1
+        self.canvas.setMode(Canvas.MODE_CREATE_BBOX)
         self.actions.createLine.setEnabled(False)
         self.actions.create.setEnabled(False)
     
     def createKeypointPressed(self):
         assert self.beginner()
-        self.canvas.setMode(Canvas.MODE_CREATE_KEYPOINT)
-        #self.actions.create.setEnabled(False)
-        self.actions.createKeypoint.setEnabled(False)
+        if self.canvas.mode == Canvas.MODE_CREATE_KEYPOINT:
+            self.canvas.finishCreating()
+            self.canvas.setMode(Canvas.MODE_EDIT) #Finish keypoint mode
+            self.actions.createKeypoints.setText("Create Keypoints")
+        else:
+            self.canvas.expect_creating_points_num = -1
+            self.canvas.setMode(Canvas.MODE_CREATE_KEYPOINT)
+            #self.actions.create.setEnabled(False)
+            self.actions.createKeypoints.setText("Finish Keypoints")
 
     def toggleDrawingSensitive(self, drawing=True):
         """In the middle of drawing, toggling between modes should be disabled."""
@@ -657,12 +667,12 @@ class MainWindow(QMainWindow, WindowMixin):
 
     def toggleDrawMode(self, mode=Canvas.MODE_EDIT):
         self.canvas.setMode(mode)
-        self.actions.createMode.setEnabled(mode != Canvas.MODE_CREATE)
+        self.actions.createMode.setEnabled(mode != Canvas.MODE_CREATE_BBOX)
         self.actions.editMode.setEnabled(mode != Canvas.MODE_EDIT)
 
     def setCreateMode(self):
         assert self.advanced()
-        self.toggleDrawMode(Canvas.MODE_CREATE)
+        self.toggleDrawMode(Canvas.MODE_CREATE_BBOX)
 
     def setEditMode(self):
         assert self.advanced()
@@ -689,7 +699,7 @@ class MainWindow(QMainWindow, WindowMixin):
         self.menus.labelList.exec_(self.labelList.mapToGlobal(point))
 
     def editLabel(self):
-        if not self.canvas.editing():
+        if self.canvas.creating():
             return
         item = self.currentItem()
         text = self.labelDialog.popUp(item.text())
@@ -712,7 +722,7 @@ class MainWindow(QMainWindow, WindowMixin):
     def btnstate(self, item= None):
         """ Function to handle difficult examples
         Update on each object """
-        if not self.canvas.editing():
+        if self.canvas.creating():
             return
 
         item = self.currentItem()
@@ -745,9 +755,9 @@ class MainWindow(QMainWindow, WindowMixin):
                 self.shapesToItems[shape].setSelected(True)
             else:
                 self.labelList.clearSelection()
-        self.actions.createKeypoint.setEnabled(selected)
+        #self.actions.createKeypoints.setEnabled(selected)
         self.actions.delete.setEnabled(selected)
-        self.actions.deleteKeypoint.setEnabled(selected)
+        self.actions.deleteKeypoints.setEnabled(selected)
         self.actions.edit.setEnabled(selected)
         self.actions.shapeLineColor.setEnabled(selected)
         self.actions.shapeFillColor.setEnabled(selected)
@@ -846,7 +856,7 @@ class MainWindow(QMainWindow, WindowMixin):
 
     def labelSelectionChanged(self):
         item = self.currentItem()
-        if item and self.canvas.editing():
+        if item and not self.canvas.creating():
             self._noSelectionSlot = True
             self.canvas.selectShape(self.itemsToShapes[item])
             shape = self.itemsToShapes[item]
@@ -1349,7 +1359,7 @@ class MainWindow(QMainWindow, WindowMixin):
         return ''
 
     def _saveFile(self, annotationFilePath, forceSave):
-        print ("_saveFile", annotationFilePath)
+        print ("_saveFile", annotationFilePath, forceSave)
         if not forceSave and len(self.canvas.shapes) <= 0:
             if self.usingPascalVocFormat:
                 if ustr(annotationFilePath[-4:]) != ".xml":

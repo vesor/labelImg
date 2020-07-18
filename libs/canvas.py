@@ -30,7 +30,7 @@ class Canvas(QWidget):
     shapeMoved = pyqtSignal()
     drawingPolygon = pyqtSignal(bool)
 
-    MODE_CREATE, MODE_EDIT, MODE_CREATE_KEYPOINT = list(range(3))
+    MODE_EDIT, MODE_CREATE_BBOX, MODE_CREATE_KEYPOINT = list(range(3))
 
     epsilon = 11.0
 
@@ -38,7 +38,6 @@ class Canvas(QWidget):
         super(Canvas, self).__init__(*args, **kwargs)
         # Initialise local state.
         self.mode = Canvas.MODE_EDIT
-        self.auto_generate_keypoints = False
         self.shapes = []
         self.current = None
         self.selectedShape = None  # save the selected shape here
@@ -63,6 +62,7 @@ class Canvas(QWidget):
         self.setMouseTracking(True)
         self.setFocusPolicy(Qt.WheelFocus)
         self.verified = False
+        self.expect_creating_points_num = -1
 
     def setDrawingColor(self, qColor):
         self.drawingLineColor = qColor
@@ -80,15 +80,12 @@ class Canvas(QWidget):
     def isVisible(self, shape):
         return self.visible.get(shape, True)
 
-    def drawing(self):
-        return self.mode == Canvas.MODE_CREATE
-
-    def editing(self):
-        return self.mode == Canvas.MODE_EDIT
+    def creating(self):
+        return self.mode != Canvas.MODE_EDIT
 
     def setMode(self, value):
         self.mode = value
-        if self.mode == Canvas.MODE_CREATE:  # Create
+        if self.mode == Canvas.MODE_CREATE_BBOX:  # Create
             self.unHighlight()
             self.deSelectShape()
         self.prevPoint = QPointF()
@@ -113,7 +110,7 @@ class Canvas(QWidget):
                 'X: %d; Y: %d' % (pos.x(), pos.y()))
 
         # Polygon drawing.
-        if self.drawing():
+        if self.creating():
             self.overrideCursor(CURSOR_DRAW)
             if self.current:
                 color = self.drawingLineColor
@@ -127,9 +124,11 @@ class Canvas(QWidget):
                     pos = self.current[(0, None)]
                     color = self.current.line_color
                     self.overrideCursor(CURSOR_POINT)
-                    self.current.highlightVertex(0, Shape.NEAR_VERTEX)
-                self.line[(1, None)] = pos
-                self.line.line_color = color
+                    self.current.highlightVertex((0, None), Shape.NEAR_VERTEX)
+                
+                if self.line:
+                    self.line[(1, None)] = pos
+                    self.line.line_color = color
                 self.prevPoint = QPointF()
                 self.current.highlightClear()
             else:
@@ -220,10 +219,49 @@ class Canvas(QWidget):
         pos = self.transformPos(ev.pos())
 
         if ev.button() == Qt.LeftButton:
-            if self.mode == self.MODE_CREATE:
-                self.handleDrawing(pos)
-            elif self.mode == self.MODE_CREATE_KEYPOINT and self.selectedShape.containsPoint(pos):
-                self.addKeypoint(pos)
+            if self.mode == self.MODE_CREATE_BBOX:
+                if not self.current:
+                    self.startCreatingBBox(pos)
+                elif self.expect_creating_points_num > 0 and len(self.line) == self.expect_creating_points_num:
+                    self.finishCreatingBBox()
+                else:
+                    print("Error when create bbox rect", self.expect_creating_points_num)
+                    raise ValueError("Error when create bbox rect")
+
+            elif self.mode == self.MODE_CREATE_KEYPOINT:
+                if self.selectedShape:
+                    self.selectedShape.keypoint.addPoint(pos)
+                else:
+                    if not self.current:
+                        self.startCreating(pos)
+                    elif self.expect_creating_points_num > 0 and len(self.current.keypoint) == self.expect_creating_points_num:
+                        self.finishCreating()
+                    else:
+                        self.current.keypoint.addPoint(pos)
+
+                        initPos = self.current.keypoint[0]
+                        minX = initPos.x()
+                        minY = initPos.y()
+                        maxX = initPos.x()
+                        maxY = initPos.y()
+                        for p in self.current.keypoint:
+                            if p.x() > maxX:
+                                maxX = p.x()
+                            if p.y() > maxY:
+                                maxY = p.y()
+                            if p.x() < minX:
+                                minX = p.x()
+                            if p.y() < minY:
+                                minY = p.y()
+
+                        self.current.points = [QPointF(minX, minY), QPointF(maxX, minY), \
+                            QPointF(maxX, maxY), QPointF(minX, maxY)]
+                        self.current.close()
+                        self.line.points[-2] = pos
+                        
+                        
+                self.update()
+                #self.addKeypoint(pos)
             else:
                 self.setMode(self.MODE_EDIT)
                 self.selectShapePoint(pos)
@@ -231,7 +269,7 @@ class Canvas(QWidget):
                 if self.selectedVertex() or self.selectedShape:
                     self.overrideCursor(CURSOR_GRAB)
                 self.repaint()
-        elif ev.button() == Qt.RightButton and self.editing():
+        elif ev.button() == Qt.RightButton and not self.creating():
             self.selectShapePoint(pos)
             self.prevPoint = pos
             self.repaint()
@@ -253,8 +291,8 @@ class Canvas(QWidget):
                     self.overrideCursor(CURSOR_GRAB)
             # else:
             #     pos = self.transformPos(ev.pos())
-            #     if self.drawing():
-            #         self.handleDrawing(pos)
+            #     if self.creating():
+            #         self.handleCreating(pos)
             #     else:
             #         self.restoreCursor()
 
@@ -281,38 +319,61 @@ class Canvas(QWidget):
             self.repaint()
 
     def addKeypoint(self, pos):
-        assert self.selectedShape
-        self.selectedShape.keypoint.addPoint(pos)
+        if self.selectedShape:
+            self.selectedShape.keypoint.addPoint(pos)
+        else:
+            self.line.addPoint(pos)
+        
         self.repaint()
 
-    def handleDrawing(self, pos):
-        if self.current and self.current.reachMaxPoints() is False:
-            initPos = self.current[(0, None)]
-            minX = initPos.x()
-            minY = initPos.y()
-            targetPos = self.line[(1, None)]
-            maxX = targetPos.x()
-            maxY = targetPos.y()
-            self.current.addPoint(QPointF(maxX, minY))
-            self.current.addPoint(targetPos)
-            self.current.addPoint(QPointF(minX, maxY))
-            if self.auto_generate_keypoints:
-                self.current.keypoint.addPoint(initPos)
-                self.current.keypoint.addPoint(targetPos)
-            self.finalise()
-        elif not self.outOfPixmap(pos):
+    def startCreatingBBox(self, pos):
+        if not self.outOfPixmap(pos):
             self.current = Shape()
             self.current.addPoint(pos)
+            self.line = Shape()
             self.line.points = [pos, pos]
             self.setHiding()
             self.drawingPolygon.emit(True)
             self.update()
 
+    def finishCreatingBBox(self):
+        if self.current:
+            assert self.expect_creating_points_num == 2
+
+            initPos = self.current[(0, None)]
+            minX = initPos.x()
+            minY = initPos.y()
+            targetPos = self.line[(-1, None)]
+            maxX = targetPos.x()
+            maxY = targetPos.y()
+            self.current.addPoint(QPointF(maxX, minY))
+            self.current.addPoint(targetPos)
+            self.current.addPoint(QPointF(minX, maxY))
+            # if self.auto_generate_keypoints:
+            #     self.current.keypoint.addPoint(initPos)
+            #     self.current.keypoint.addPoint(targetPos)
+            self.finalise()
+
+    def startCreating(self, pos):
+        if not self.outOfPixmap(pos):
+            self.current = Shape()
+            self.current.addPoint(pos)
+            self.current.keypoint.addPoint(pos)
+            self.line = Shape()
+            self.line.points = [pos, pos]
+            self.setHiding()
+            self.drawingPolygon.emit(True)
+            self.update()
+
+    def finishCreating(self):
+        if self.current:
+            self.finalise()
+
     def setHiding(self, enable=True):
         self._hideBackround = self.hideBackround if enable else False
 
     def canCloseShape(self):
-        return self.drawing() and self.current and len(self.current) > 2
+        return self.creating() and self.current and len(self.current) > 2
 
     def mouseDoubleClickEvent(self, ev):
         # We need at least 4 points here, since the mousePress handler
@@ -462,12 +523,13 @@ class Canvas(QWidget):
                 shape.paint(p)
         if self.current:
             self.current.paint(p)
+        if self.line:
             self.line.paint(p)
         if self.selectedShapeCopy:
             self.selectedShapeCopy.paint(p)
 
         # Paint rect
-        if self.current is not None and len(self.line) == 2:
+        if self.creating() and self.current and len(self.line) == 2:
             leftTop = self.line[(0, None)]
             rightBottom = self.line[(1, None)]
             rectWidth = rightBottom.x() - leftTop.x()
@@ -477,7 +539,7 @@ class Canvas(QWidget):
             # p.setBrush(brush)
             p.drawRect(leftTop.x(), leftTop.y(), rectWidth, rectHeight)
 
-        if self.drawing() and not self.prevPoint.isNull() and not self.outOfPixmap(self.prevPoint):
+        if self.creating() and not self.prevPoint.isNull() and not self.outOfPixmap(self.prevPoint):
             p.setPen(QColor(0, 0, 0))
             p.drawLine(self.prevPoint.x(), 0, self.prevPoint.x(), self.pixmap.height())
             p.drawLine(0, self.prevPoint.y(), self.pixmap.width(), self.prevPoint.y())
@@ -515,6 +577,7 @@ class Canvas(QWidget):
         assert self.current
         if self.current.points[0] == self.current.points[-1]:
             self.current = None
+            self.line = None
             self.drawingPolygon.emit(False)
             self.update()
             return
@@ -522,6 +585,7 @@ class Canvas(QWidget):
         self.current.close()
         self.shapes.append(self.current)
         self.current = None
+        self.line = None
         self.setHiding(False)
         self.newShape.emit()
         self.update()
@@ -619,6 +683,7 @@ class Canvas(QWidget):
         if key == Qt.Key_Escape and self.current:
             print('ESC press')
             self.current = None
+            self.line = None
             self.drawingPolygon.emit(False)
             self.update()
         elif key == Qt.Key_Return and self.canCloseShape():
@@ -687,9 +752,10 @@ class Canvas(QWidget):
         assert self.shapes
         self.current = self.shapes.pop()
         self.current.setOpen()
-        self.line.points = [self.current[(-1, None)], self.current[(0, None)]]
+        #self.line.points = [self.current[(-1, None)], self.current[(0, None)]]
         self.drawingPolygon.emit(True)
         self.current = None
+        self.line = None
         self.drawingPolygon.emit(False)
         self.update()
 
@@ -701,6 +767,7 @@ class Canvas(QWidget):
     def loadShapes(self, shapes):
         self.shapes = list(shapes)
         self.current = None
+        self.line = None
         self.repaint()
 
     def setShapeVisible(self, shape, value):

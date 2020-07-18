@@ -68,14 +68,8 @@ class Shape(object):
     def close(self):
         self._closed = True
 
-    def reachMaxPoints(self):
-        if len(self.points) >= 4:
-            return True
-        return False
-
     def addPoint(self, point):
-        if not self.reachMaxPoints():
-            self.points.append(point)
+        self.points.append(point)
 
     def popPoint(self):
         if self.points:
@@ -105,7 +99,7 @@ class Shape(object):
                 # for the 1st vertex, and make it non-filled, which
                 # may be desirable.
                 #self.drawVertex(vrtx_path, 0)
-
+                
                 for i, p in enumerate(self.points):
                     line_path.lineTo(p)
                     self.drawVertex(vrtx_path, i)

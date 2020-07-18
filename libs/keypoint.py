@@ -39,8 +39,7 @@ class Keypoint(object):
 
     def __init__(self):
         self.points = []
-        self.selected = False
-
+        
         self._highlightIndex = None
         self._highlightMode = self.NEAR_VERTEX
         self._highlightSettings = {
@@ -68,9 +67,9 @@ class Keypoint(object):
             return self.points.pop()
         return None
 
-    def paint(self, painter):
+    def paint(self, painter, color):
         if self.points:
-            color = self.select_line_color if self.selected else self.line_color
+            #color = self.select_line_color if self.selected else self.line_color
             pen = QPen(color)
             # Try using integer sizes for smoother drawing(?)
             pen.setWidth(max(1, int(round(2.0 / self.scale))))
@@ -151,7 +150,7 @@ class Keypoint(object):
     def copy(self):
         kypt = Keypoint()
         kypt.points = [p for p in self.points]
-        kypt.selected = self.selected
+        #kypt.selected = self.selected
         if self.line_color != Keypoint.line_color:
             kypt.line_color = self.line_color
         return kypt

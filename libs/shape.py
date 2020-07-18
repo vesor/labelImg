@@ -39,7 +39,7 @@ class Shape(object):
     point_size = 8
     scale = 1.0
 
-    def __init__(self, label=None, line_color=None, difficult=False, paintLabel=False):
+    def __init__(self, label=None, line_color=None, difficult=False, paintLabel=False, paintBBox=True):
         self.label = label
         self.points = []
         self.keypoint = Keypoint()
@@ -48,6 +48,7 @@ class Shape(object):
         self.difficult = difficult
         self.score = None
         self.paintLabel = paintLabel
+        self.paintBBox = paintBBox
 
         self._highlightIndex = None
         self._highlightMode = self.NEAR_VERTEX
@@ -95,26 +96,27 @@ class Shape(object):
             pen.setWidth(max(1, int(round(2.0 / self.scale))))
             painter.setPen(pen)
 
-            line_path = QPainterPath()
-            vrtx_path = QPainterPath()
+            if self.paintBBox:
+                line_path = QPainterPath()
+                vrtx_path = QPainterPath()
 
-            line_path.moveTo(self.points[0])
-            # Uncommenting the following line will draw 2 paths
-            # for the 1st vertex, and make it non-filled, which
-            # may be desirable.
-            #self.drawVertex(vrtx_path, 0)
+                line_path.moveTo(self.points[0])
+                # Uncommenting the following line will draw 2 paths
+                # for the 1st vertex, and make it non-filled, which
+                # may be desirable.
+                #self.drawVertex(vrtx_path, 0)
 
-            for i, p in enumerate(self.points):
-                line_path.lineTo(p)
-                self.drawVertex(vrtx_path, i)
-            if self.isClosed():
-                line_path.lineTo(self.points[0])
+                for i, p in enumerate(self.points):
+                    line_path.lineTo(p)
+                    self.drawVertex(vrtx_path, i)
+                if self.isClosed():
+                    line_path.lineTo(self.points[0])
 
-            painter.drawPath(line_path)
-            painter.drawPath(vrtx_path)
-            painter.fillPath(vrtx_path, self.vertex_fill_color)
+                painter.drawPath(line_path)
+                painter.drawPath(vrtx_path)
+                painter.fillPath(vrtx_path, self.vertex_fill_color)
 
-            self.keypoint.paint(painter)
+            self.keypoint.paint(painter, color)
 
             # Draw text at the top-left
             if self.paintLabel:

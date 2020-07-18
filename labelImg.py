@@ -386,6 +386,13 @@ class MainWindow(QMainWindow, WindowMixin):
         self.paintLabelsOption.setChecked(settings.get(SETTING_PAINT_LABEL, False))
         self.paintLabelsOption.triggered.connect(self.togglePaintLabelsOption)
 
+        self.paintBBoxsOption = QAction("Paint BBoxs", self)
+        self.paintBBoxsOption.setShortcut("Ctrl+Shift+B")
+        self.paintBBoxsOption.setCheckable(True)
+        self.paintBBoxsOption.setChecked(settings.get(SETTING_PAINT_BBOX, True))
+        self.paintBBoxsOption.triggered.connect(self.togglePaintBBoxsOption)
+        
+
         addActions(self.menus.file,
                    (open, opendir, changeSavedir, openAnnotation, self.menus.recentFiles, save, save_format, saveAs, close, resetAll, quit))
         addActions(self.menus.help, (help, showInfo))
@@ -393,6 +400,7 @@ class MainWindow(QMainWindow, WindowMixin):
             self.autoSaving,
             self.singleClassMode,
             self.paintLabelsOption,
+            self.paintBBoxsOption,
             labels, advancedMode, None,
             hideAll, showAll, None,
             zoomIn, zoomOut, zoomOrg, None,
@@ -746,6 +754,7 @@ class MainWindow(QMainWindow, WindowMixin):
 
     def addLabel(self, shape):
         shape.paintLabel = self.paintLabelsOption.isChecked()
+        shape.paintBBox = self.paintBBoxsOption.isChecked()
         item_label = shape.label
         if shape.score is not None:
             item_label = "{} {:.3f}".format(shape.label, shape.score)
@@ -1130,9 +1139,10 @@ class MainWindow(QMainWindow, WindowMixin):
         else:
             settings[SETTING_LAST_OPEN_DIR] = ""
 
-        settings[SETTING_AUTO_SAVE] = self.autoSaving.isChecked()
+        #settings[SETTING_AUTO_SAVE] = self.autoSaving.isChecked()
         settings[SETTING_SINGLE_CLASS] = self.singleClassMode.isChecked()
         settings[SETTING_PAINT_LABEL] = self.paintLabelsOption.isChecked()
+        #settings[SETTING_PAINT_BBOX] = self.paintBBoxsOption.isChecked()
         settings.save()
     ## User Dialogs ##
 
@@ -1475,6 +1485,11 @@ class MainWindow(QMainWindow, WindowMixin):
         paintLabelsOptionChecked = self.paintLabelsOption.isChecked()
         for shape in self.canvas.shapes:
             shape.paintLabel = paintLabelsOptionChecked
+
+    def togglePaintBBoxsOption(self):
+        paintBBoxsOptionChecked = self.paintBBoxsOption.isChecked()
+        for shape in self.canvas.shapes:
+            shape.paintBBox = paintBBoxsOptionChecked
 
 def inverted(color):
     return QColor(*[255 - v for v in color.getRgb()])

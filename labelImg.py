@@ -259,9 +259,6 @@ class MainWindow(QMainWindow, WindowMixin):
         editMode = action('&Edit\nRectBox', self.setEditMode,
                           'Ctrl+J', 'edit', u'Move and edit Boxs', enabled=False)
 
-        createLine = action('Create Line', self.createLine,
-                        'c', 'newline', u'Draw a new line', enabled=False)
-
         create = action('Create\nRectBox', self.createRect,
                         'w', 'new', u'Draw a new Box', enabled=False)
         delete = action('Delete\nRectBox', self.deleteSelectedShape,
@@ -329,7 +326,7 @@ class MainWindow(QMainWindow, WindowMixin):
         labels.setShortcut('Ctrl+Shift+L')
 
         createKeypoints = action('Create Keypoints', self.createKeypointPressed,
-                      't', 'createKeypoints', u'Create keypoints',
+                      'e', 'createKeypoints', u'Create keypoints',
                       enabled=True)
         deleteKeypoints = action('Delete Keypoints', self.deleteSelectedKeypoint,
                         'Ctrl+Delete', 'deleteKeypoints', u'Delete keypoints of the selected Box', enabled=False)
@@ -347,7 +344,7 @@ class MainWindow(QMainWindow, WindowMixin):
 
         # Store actions for further handling.
         self.actions = struct(save=save, save_format=save_format, saveAs=saveAs, open=open, close=close, resetAll = resetAll,
-                              lineColor=color1, create=create, createLine=createLine, createKeypoints=createKeypoints, delete=delete, deleteKeypoints=deleteKeypoints, edit=edit,
+                              lineColor=color1, create=create, createKeypoints=createKeypoints, delete=delete, deleteKeypoints=deleteKeypoints, edit=edit,
                               createMode=createMode, editMode=editMode, advancedMode=advancedMode,
                               shapeLineColor=shapeLineColor, shapeFillColor=shapeFillColor,
                               zoom=zoom, zoomIn=zoomIn, zoomOut=zoomOut, zoomOrg=zoomOrg,
@@ -358,11 +355,11 @@ class MainWindow(QMainWindow, WindowMixin):
                               beginner=(), advanced=(),
                               editMenu=(edit, delete,
                                         None, color1),
-                              beginnerContext=(createLine, create, createKeypoints, edit, delete, deleteKeypoints),
+                              beginnerContext=(create, createKeypoints, edit, delete, deleteKeypoints),
                               advancedContext=(createMode, editMode, edit,
                                                delete, shapeLineColor, shapeFillColor),
                               onLoadActive=(
-                                  close, createLine, create, createMode, editMode),
+                                  close, create, createKeypoints, createMode, editMode),
                               onShapesPresent=(saveAs, hideAll, showAll))
 
         self.menus = struct(
@@ -424,7 +421,7 @@ class MainWindow(QMainWindow, WindowMixin):
 
         self.tools = self.toolbar('Tools')
         self.actions.beginner = (
-            open, opendir, changeSavedir, openNextImg, openPrevImg, verify, save, save_format, None, createLine, create, delete, None,
+            open, opendir, changeSavedir, openNextImg, openPrevImg, verify, save, save_format, None, create, createKeypoints, delete, None,
             zoomIn, zoom, zoomOut, fitWindow, fitWidth)
 
         self.actions.advanced = (
@@ -551,7 +548,7 @@ class MainWindow(QMainWindow, WindowMixin):
         addActions(self.canvas.menus[0], menu)
         self.menus.edit.clear()
         if self.beginner():
-            actions = (self.actions.createLine, self.actions.create)
+            actions = (self.actions.create, self.actions.createKeypoints)
         else:
             actions = (self.actions.createMode, self.actions.editMode)
         addActions(self.menus.edit, actions + self.actions.editMenu)
@@ -572,7 +569,6 @@ class MainWindow(QMainWindow, WindowMixin):
     def setClean(self):
         #self.dirty = False
         #self.actions.save.setEnabled(False)
-        self.actions.createLine.setEnabled(True)
         self.actions.create.setEnabled(True)
 
     def toggleActions(self, value=True):
@@ -639,14 +635,6 @@ class MainWindow(QMainWindow, WindowMixin):
         assert self.beginner()
         self.canvas.expect_creating_points_num = 2
         self.canvas.setMode(Canvas.MODE_CREATE_BBOX)
-        self.actions.createLine.setEnabled(False)
-        self.actions.create.setEnabled(False)
-
-    def createLine(self):
-        assert self.beginner()
-        self.canvas.expect_creating_points_num = -1
-        self.canvas.setMode(Canvas.MODE_CREATE_BBOX)
-        self.actions.createLine.setEnabled(False)
         self.actions.create.setEnabled(False)
     
     def createKeypointPressed(self):
@@ -673,7 +661,6 @@ class MainWindow(QMainWindow, WindowMixin):
             print('Cancel creation.')
             self.canvas.setMode(Canvas.MODE_EDIT)
             self.canvas.restoreCursor()
-            self.actions.createLine.setEnabled(True)
             self.actions.create.setEnabled(True)
 
     def toggleDrawMode(self, mode=Canvas.MODE_EDIT):
@@ -913,7 +900,6 @@ class MainWindow(QMainWindow, WindowMixin):
             self.addLabel(shape)
             if self.beginner():  # Switch to edit mode.
                 self.canvas.setMode(Canvas.MODE_EDIT)
-                self.actions.createLine.setEnabled(True)
                 self.actions.create.setEnabled(True)
             else:
                 self.actions.editMode.setEnabled(True)

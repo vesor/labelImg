@@ -369,6 +369,9 @@ class Canvas(QWidget):
         if self.current:
             self.finalise()
 
+        self.deSelectShape()
+        self.overrideCursor(CURSOR_DEFAULT)
+
     def setHiding(self, enable=True):
         self._hideBackround = self.hideBackround if enable else False
 

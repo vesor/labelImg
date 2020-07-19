@@ -483,6 +483,7 @@ class MainWindow(QMainWindow, WindowMixin):
         Shape.line_color = self.lineColor = QColor(settings.get(SETTING_LINE_COLOR, DEFAULT_LINE_COLOR))
         Shape.fill_color = self.fillColor = QColor(settings.get(SETTING_FILL_COLOR, DEFAULT_FILL_COLOR))
         self.canvas.setDrawingColor(self.lineColor)
+        self.canvas.showDrawingRect = self.paintBBoxsOption.isChecked()
         # Add chris
         Shape.difficult = self.difficult
 
@@ -1560,6 +1561,7 @@ class MainWindow(QMainWindow, WindowMixin):
 
     def togglePaintBBoxsOption(self):
         paintBBoxsOptionChecked = self.paintBBoxsOption.isChecked()
+        self.canvas.showDrawingRect = self.paintBBoxsOption.isChecked()
         for shape in self.canvas.shapes:
             shape.paintBBox = paintBBoxsOptionChecked
 

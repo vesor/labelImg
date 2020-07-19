@@ -44,6 +44,7 @@ class Canvas(QWidget):
         self.selectedShapeCopy = None
         self.drawingLineColor = QColor(0, 0, 255)
         self.drawingRectColor = QColor(0, 0, 255) 
+        self.showDrawingRect = True
         self.line = Shape(line_color=self.drawingLineColor)
         self.prevPoint = QPointF()
         self.offsets = QPointF(), QPointF()
@@ -525,6 +526,7 @@ class Canvas(QWidget):
                 #shape.fill = shape.selected or shape == self.hShape
                 shape.paint(p)
         if self.current:
+            self.current.paintBBox = self.showDrawingRect
             self.current.paint(p)
         if self.line:
             self.line.paint(p)
@@ -532,7 +534,7 @@ class Canvas(QWidget):
             self.selectedShapeCopy.paint(p)
 
         # Paint rect
-        if self.creating() and self.current and len(self.line) == 2:
+        if self.showDrawingRect and self.creating() and self.current and len(self.line) == 2:
             leftTop = self.line[(0, None)]
             rightBottom = self.line[(1, None)]
             rectWidth = rightBottom.x() - leftTop.x()

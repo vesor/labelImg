@@ -229,11 +229,20 @@ class MainWindow(QMainWindow, WindowMixin):
         openAnnotation = action('&Open Annotation', self.openAnnotationDialog,
                                 'Ctrl+Shift+O', 'open', u'Open Annotation')
 
-        openNextImg = action('&Next Image', self.openNextImg,
+        openNextImg = action('&Next Image', self.openNextImgPressed,
                              'd', 'next', u'Open Next')
 
-        openPrevImg = action('&Prev Image', self.openPrevImg,
-                             'a', 'prev', u'Open Prev')
+        openPrevImg = action('&Prev Image', self.openPrevImgPressed,
+                             's', 'prev', u'Open Prev')
+
+        openNextAnno = action('&Next Anno', self.openNextAnnoPressed,
+                             'f', 'next', u'Open Next Anno')
+
+        openPrevAnno = action('&Prev Anno', self.openPrevAnnoPressed,
+                             'a', 'prev', u'Open Prev Anno')
+
+        self.addAction(openNextAnno)
+        self.addAction(openPrevAnno)
 
         verify = action('&Verify Image', self.verifyImg,
                         'space', 'verify', u'Verify Image')
@@ -833,13 +842,13 @@ class MainWindow(QMainWindow, WindowMixin):
         # Can add differrent annotation formats here
         try:
             if self.usingPascalVocFormat is True:
-                if ustr(annotationFilePath[-4:]) != ".xml":
+                if ustr(annotationFilePath[-4:]) != XML_EXT:
                     annotationFilePath += XML_EXT
                 #print ('Img: ' + self.filePath + ' -> Its xml: ' + annotationFilePath)
                 self.labelFile.savePascalVocFormat(annotationFilePath, shapes, self.filePath, self.imageData,
                                                    self.lineColor.getRgb(), self.fillColor.getRgb())
             elif self.usingYoloFormat is True:
-                if annotationFilePath[-4:] != ".txt":
+                if annotationFilePath[-4:] != TXT_EXT:
                     annotationFilePath += TXT_EXT
                 #print ('Img: ' + self.filePath + ' -> Its txt: ' + annotationFilePath)
                 self.labelFile.saveYoloFormat(annotationFilePath, shapes, self.filePath, self.imageData, self.labelHist,
@@ -1159,16 +1168,28 @@ class MainWindow(QMainWindow, WindowMixin):
 
     def scanAllImages(self, folderPath):
         extensions = ['.%s' % fmt.data().decode("ascii").lower() for fmt in QImageReader.supportedImageFormats()]
-        images = []
+        return self.scanAllFiles(folderPath, extensions)
+
+    def scanAllAnnotations(self, folderPath):
+        if self.usingPascalVocFormat:
+            extensions = [XML_EXT]
+        elif self.usingYoloFormat:
+            extensions = [TXT_EXT]
+        else:
+            extensions = []
+        return self.scanAllFiles(folderPath, extensions)
+
+    def scanAllFiles(self, folderPath, extensions):
+        filelist = []
 
         for root, dirs, files in os.walk(folderPath):
             for file in files:
                 if file.lower().endswith(tuple(extensions)):
                     relativePath = os.path.join(root, file)
                     path = ustr(os.path.abspath(relativePath))
-                    images.append(path)
-        images.sort(key=lambda x: x.lower())
-        return images
+                    filelist.append(path)
+        filelist.sort(key=lambda x: x.lower())
+        return filelist
 
     def changeSavedirDialog(self, _value=False):
         if self.defaultSaveDir is not None:
@@ -1227,7 +1248,9 @@ class MainWindow(QMainWindow, WindowMixin):
         self.filePath = None
         self.fileListWidget.clear()
         self.mImgList = self.scanAllImages(dirpath)
-        self.openNextImg()
+        self.checkSwitchFile()
+        if len(self.mImgList) > 0:
+            self.loadFile(self.mImgList[0])
         for imgPath in self.mImgList:
             item = QListWidgetItem(os.path.basename(imgPath))
             self.fileListWidget.addItem(item)
@@ -1250,57 +1273,79 @@ class MainWindow(QMainWindow, WindowMixin):
             self.paintCanvas()
             self.saveFile()
 
-    def openPrevImg(self, _value=False):
-        # Proceding prev image without dialog if having any label
+    def checkSwitchFile(self):
         if self.autoSaving.isChecked():
             if self.defaultSaveDir is not None:
                 #if self.dirty is True:
                 self.saveFile()
             else:
                 self.changeSavedirDialog()
-                return
+                return None
 
-        if not self.mayContinue():
-            return
+        if not self.mayContinue() or len(self.mImgList) <= 0 \
+            or self.filePath is None:
+            print("checkSwitchFile fail")
+            return None
 
-        if len(self.mImgList) <= 0:
-            return
+        try:
+            fileIndex = self.mImgList.index(self.filePath)
+        except:
+            print("current filePath not in list:", self.filePath)
+            return None
 
-        if self.filePath is None:
-            return
+        return fileIndex
 
-        currIndex = self.mImgList.index(self.filePath)
-        if currIndex - 1 >= 0:
-            filename = self.mImgList[currIndex - 1]
-            if filename:
-                self.loadFile(filename)
-
-    def openNextImg(self, _value=False):
+    def openPrevImgPressed(self, _value=False):
         # Proceding prev image without dialog if having any label
-        if self.autoSaving.isChecked():
-            if self.defaultSaveDir is not None:
-                #if self.dirty is True:
-                self.saveFile()
-            else:
-                self.changeSavedirDialog()
-                return
-
-        if not self.mayContinue():
+        fileIndex = self.checkSwitchFile()
+        if fileIndex is None:
             return
 
-        if len(self.mImgList) <= 0:
-            return
-
-        filename = None
-        if self.filePath is None:
-            filename = self.mImgList[0]
-        else:
-            currIndex = self.mImgList.index(self.filePath)
-            if currIndex + 1 < len(self.mImgList):
-                filename = self.mImgList[currIndex + 1]
-
-        if filename:
+        if fileIndex - 1 >= 0:
+            filename = self.mImgList[fileIndex - 1]
             self.loadFile(filename)
+
+    def openNextImgPressed(self, _value=False):
+        # Proceding prev image without dialog if having any label
+        fileIndex = self.checkSwitchFile()
+        if fileIndex is None:
+            return
+
+        if fileIndex + 1 < len(self.mImgList):
+            filename = self.mImgList[fileIndex + 1]
+            self.loadFile(filename)
+
+    def openPrevAnnoPressed(self):
+        fileIndex = self.checkSwitchFile()
+        if fileIndex is None:
+            return
+
+        fileIndex -= 1
+        while fileIndex >= 0:
+            imgFile = self.mImgList[fileIndex]
+            filename = os.path.basename(imgFile) 
+            filename = os.path.splitext(filename)[0] + XML_EXT
+            if os.path.exists(os.path.join(self.defaultSaveDir, filename)):
+                self.loadFile(imgFile)
+                break
+            else:
+                fileIndex -= 1
+
+    def openNextAnnoPressed(self):
+        fileIndex = self.checkSwitchFile()
+        if fileIndex is None:
+            return
+        
+        fileIndex += 1
+        while fileIndex < len(self.mImgList):
+            imgFile = self.mImgList[fileIndex]
+            filename = os.path.basename(imgFile) 
+            filename = os.path.splitext(filename)[0] + XML_EXT
+            if os.path.exists(os.path.join(self.defaultSaveDir, filename)):
+                self.loadFile(imgFile)
+                break
+            else:
+                fileIndex += 1
 
     def openFile(self, _value=False):
         if not self.mayContinue():
@@ -1359,10 +1404,10 @@ class MainWindow(QMainWindow, WindowMixin):
         print ("_saveFile", annotationFilePath, forceSave)
         if not forceSave and len(self.canvas.shapes) <= 0:
             if self.usingPascalVocFormat:
-                if ustr(annotationFilePath[-4:]) != ".xml":
+                if ustr(annotationFilePath[-4:]) != XML_EXT:
                     annotationFilePath += XML_EXT
             elif self.usingYoloFormat:
-                if annotationFilePath[-4:] != ".txt":
+                if annotationFilePath[-4:] != TXT_EXT:
                     annotationFilePath += TXT_EXT
 
             if os.path.exists(annotationFilePath):

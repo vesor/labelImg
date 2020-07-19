@@ -37,6 +37,7 @@ from libs.zoomWidget import ZoomWidget
 from libs.labelDialog import LabelDialog
 from libs.colorDialog import ColorDialog
 from libs.alertDialog import AlertDialog
+from libs.listViewWithBg import ListViewWithBg
 from libs.labelFile import LabelFile, LabelFileError
 from libs.toolBar import ToolBar
 from libs.pascal_voc_io import PascalVocReader
@@ -154,7 +155,7 @@ class MainWindow(QMainWindow, WindowMixin):
         listLayout.addWidget(useDefaultLabelContainer)
 
         # Create and add a widget for showing current label items
-        self.labelList = QListWidget()
+        self.labelList = ListViewWithBg()
         labelListContainer = QWidget()
         labelListContainer.setLayout(listLayout)
         self.labelList.itemActivated.connect(self.labelSelectionChanged)
@@ -323,6 +324,10 @@ class MainWindow(QMainWindow, WindowMixin):
                       enabled=False)
         self.editButton.setDefaultAction(edit)
 
+        delAnnoFile = action('&Del Anno File', self.delAnnoFilePressed,
+                      None, 'Del Anno File', u'Delete the annotation file',
+                      enabled=False)
+
         shapeLineColor = action('Shape &Line Color', self.chshapeLineColor,
                                 icon='color_line', tip=u'Change the line color for this specific shape',
                                 enabled=False)
@@ -352,7 +357,7 @@ class MainWindow(QMainWindow, WindowMixin):
             self.popLabelListMenu)
 
         # Store actions for further handling.
-        self.actions = struct(save=save, save_format=save_format, saveAs=saveAs, open=open, close=close, resetAll = resetAll,
+        self.actions = struct(save=save, save_format=save_format, saveAs=saveAs, open=open, delAnnoFile=delAnnoFile, close=close, resetAll = resetAll,
                               lineColor=color1, create=create, createKeypoints=createKeypoints, delete=delete, deleteKeypoints=deleteKeypoints, edit=edit,
                               createMode=createMode, editMode=editMode, advancedMode=advancedMode,
                               shapeLineColor=shapeLineColor, shapeFillColor=shapeFillColor,
@@ -410,7 +415,8 @@ class MainWindow(QMainWindow, WindowMixin):
         
 
         addActions(self.menus.file,
-                   (open, opendir, changeSavedir, openAnnotation, self.menus.recentFiles, save, save_format, saveAs, close, resetAll, quit))
+                   (open, opendir, changeSavedir, openAnnotation, self.menus.recentFiles,\
+                    save, save_format, saveAs, delAnnoFile, close, resetAll, quit))
         addActions(self.menus.help, (help, showInfo))
         addActions(self.menus.view, (
             self.autoSaving,
@@ -715,14 +721,22 @@ class MainWindow(QMainWindow, WindowMixin):
             item.setBackground(generateColorByText(text))
             self.setDirty()
 
+    def delAnnoFilePressed(self):
+        if self.filePath and self.defaultSaveDir:
+            imgFileName = os.path.basename(self.filePath)
+            annoFile = os.path.splitext(imgFileName)[0] + XML_EXT
+            os.remove(os.path.join(self.defaultSaveDir, annoFile))
+
+            # reload to refresh
+            self.loadFile(self.filePath)
+
     # Tzutalin 20160906 : Add file list and dock to move faster
     def fileitemDoubleClicked(self, item=None):
         currIndex = self.mImgList.index(ustr(os.path.join(self.dirname, item.text()))) #self.mImgList.index(ustr(item.text()))
         if currIndex < len(self.mImgList):
             filename = self.mImgList[currIndex]
             if filename:
-                if self.autoSaving.isChecked() and self.defaultSaveDir:
-                    self.saveFile()
+                self.checkAutoSave()
                 self.loadFile(filename)
 
     # Add chris
@@ -1067,22 +1081,19 @@ class MainWindow(QMainWindow, WindowMixin):
                 basename = os.path.basename(
                     os.path.splitext(self.filePath)[0])
                 xmlPath = os.path.join(self.defaultSaveDir, basename + XML_EXT)
-                txtPath = os.path.join(self.defaultSaveDir, basename + TXT_EXT)
+                #txtPath = os.path.join(self.defaultSaveDir, basename + TXT_EXT)
 
-                """Annotation file priority:
-                PascalXML > YOLO
-                """
                 if os.path.isfile(xmlPath):
                     self.loadPascalXMLByFilename(xmlPath)
-                elif os.path.isfile(txtPath):
-                    self.loadYOLOTXTByFilename(txtPath)
+                    self.labelList.setEmptyText(None)
+                    self.actions.delAnnoFile.setEnabled(True)
+                # elif os.path.isfile(txtPath):
+                #     self.loadYOLOTXTByFilename(txtPath)
+                else:
+                    self.labelList.setEmptyText("No Annotation File")
+                    self.actions.delAnnoFile.setEnabled(False)
             else:
-                xmlPath = os.path.splitext(filePath)[0] + XML_EXT
-                txtPath = os.path.splitext(filePath)[0] + TXT_EXT
-                if os.path.isfile(xmlPath):
-                    self.loadPascalXMLByFilename(xmlPath)
-                elif os.path.isfile(txtPath):
-                    self.loadYOLOTXTByFilename(txtPath)
+                raise ValueError("No annotation dir")
 
             self.setWindowTitle(__appname__ + ' ' + filePath)
 
@@ -1248,7 +1259,7 @@ class MainWindow(QMainWindow, WindowMixin):
         self.filePath = None
         self.fileListWidget.clear()
         self.mImgList = self.scanAllImages(dirpath)
-        self.checkSwitchFile()
+        self.checkAutoSave()
         if len(self.mImgList) > 0:
             self.loadFile(self.mImgList[0])
         for imgPath in self.mImgList:
@@ -1273,14 +1284,19 @@ class MainWindow(QMainWindow, WindowMixin):
             self.paintCanvas()
             self.saveFile()
 
-    def checkSwitchFile(self):
+    def checkAutoSave(self):
         if self.autoSaving.isChecked():
             if self.defaultSaveDir is not None:
                 #if self.dirty is True:
                 self.saveFile()
             else:
                 self.changeSavedirDialog()
-                return None
+                return False
+        return True
+
+    def checkSwitchFile(self):
+        if not self.checkAutoSave():
+            return None
 
         if not self.mayContinue() or len(self.mImgList) <= 0 \
             or self.filePath is None:
@@ -1325,7 +1341,7 @@ class MainWindow(QMainWindow, WindowMixin):
             imgFile = self.mImgList[fileIndex]
             filename = os.path.basename(imgFile) 
             filename = os.path.splitext(filename)[0] + XML_EXT
-            if os.path.exists(os.path.join(self.defaultSaveDir, filename)):
+            if os.path.isfile(os.path.join(self.defaultSaveDir, filename)):
                 self.loadFile(imgFile)
                 break
             else:
@@ -1341,7 +1357,7 @@ class MainWindow(QMainWindow, WindowMixin):
             imgFile = self.mImgList[fileIndex]
             filename = os.path.basename(imgFile) 
             filename = os.path.splitext(filename)[0] + XML_EXT
-            if os.path.exists(os.path.join(self.defaultSaveDir, filename)):
+            if os.path.isfile(os.path.join(self.defaultSaveDir, filename)):
                 self.loadFile(imgFile)
                 break
             else:
@@ -1359,8 +1375,7 @@ class MainWindow(QMainWindow, WindowMixin):
             if isinstance(filename, (tuple, list)):
                 filename = filename[0]
 
-            if self.autoSaving.isChecked() and self.defaultSaveDir:
-                self.saveFile()
+            self.checkAutoSave()
             self.loadFile(filename)
 
     def saveFilePressed(self):
@@ -1402,6 +1417,7 @@ class MainWindow(QMainWindow, WindowMixin):
 
     def _saveFile(self, annotationFilePath, forceSave):
         print ("_saveFile", annotationFilePath, forceSave)
+
         if not forceSave and len(self.canvas.shapes) <= 0:
             if self.usingPascalVocFormat:
                 if ustr(annotationFilePath[-4:]) != XML_EXT:
@@ -1410,9 +1426,9 @@ class MainWindow(QMainWindow, WindowMixin):
                 if annotationFilePath[-4:] != TXT_EXT:
                     annotationFilePath += TXT_EXT
 
-            if os.path.exists(annotationFilePath):
-                os.remove(annotationFilePath)
-                print ("empty annotation file removed: ", annotationFilePath)
+            # if os.path.exists(annotationFilePath):
+            #     os.remove(annotationFilePath)
+            #     print ("empty annotation file removed: ", annotationFilePath)
             return
         
         # safe check
@@ -1421,13 +1437,17 @@ class MainWindow(QMainWindow, WindowMixin):
             if shape.score is not None:
                 has_score = True
         if has_score:
-            self.alertDialog.popUp(text='Warning: Save with score, consider uncheck Auto Saving')
+            self.alertDialog.popUp(text='Warning: anno contains score, consider uncheck Auto Saving')
             return
 
         if annotationFilePath and self.saveLabels(annotationFilePath):
             self.setClean()
             self.statusBar().showMessage('Saved to  %s' % annotationFilePath)
             self.statusBar().show()
+
+            # reload to refresh
+            if forceSave:
+                self.loadFile(self.filePath)
 
     def closeFile(self, _value=False):
         if not self.mayContinue():

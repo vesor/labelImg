@@ -399,6 +399,7 @@ class MainWindow(QMainWindow, WindowMixin):
         self.sameKeypointNumMode = QAction("Same Keypoint Num", self)
         self.sameKeypointNumMode.setCheckable(True)
         self.sameKeypointNumMode.setChecked(False)
+        self.lastKeypointNum = None
 
         # Add option to enable/disable labels being painted at the top of bounding boxes
         self.paintLabelsOption = QAction("Paint Labels", self)
@@ -655,8 +656,8 @@ class MainWindow(QMainWindow, WindowMixin):
     
     def createKeypointPressed(self):
         assert self.beginner()
-        if self.sameKeypointNumMode.isChecked() and len(self.canvas.shapes) > 0:
-            self.canvas.expect_creating_points_num = len(self.canvas.shapes[-1].keypoint)
+        if self.sameKeypointNumMode.isChecked() and self.lastKeypointNum:
+            self.canvas.expect_creating_points_num = self.lastKeypointNum
         else:
             self.canvas.expect_creating_points_num = -1
             
@@ -922,6 +923,7 @@ class MainWindow(QMainWindow, WindowMixin):
             generate_color = generateColorByText(text)
             shape = self.canvas.setLastLabel(text, generate_color, generate_color)
             self.addLabel(shape)
+            self.lastKeypointNum = len(shape.keypoint)
             if self.beginner():  # Switch to edit mode.
                 self.canvas.setMode(Canvas.MODE_EDIT)
                 self.actions.create.setEnabled(True)
@@ -1063,7 +1065,7 @@ class MainWindow(QMainWindow, WindowMixin):
                                   u"<p>Make sure <i>%s</i> is a valid image file." % unicodeFilePath)
                 self.status("Error reading %s" % unicodeFilePath)
                 return False
-            self.status("Loaded %s" % os.path.basename(unicodeFilePath))
+            #self.status("Loaded %s" % unicodeFilePath)
             self.image = image
             self.filePath = unicodeFilePath
             self.canvas.loadPixmap(QPixmap.fromImage(image))
@@ -1088,6 +1090,7 @@ class MainWindow(QMainWindow, WindowMixin):
                     self.loadPascalXMLByFilename(xmlPath)
                     self.labelList.setEmptyText(None)
                     self.actions.delAnnoFile.setEnabled(True)
+                    self.status("Loaded %s" % xmlPath)
                 # elif os.path.isfile(txtPath):
                 #     self.loadYOLOTXTByFilename(txtPath)
                 else:
